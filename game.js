@@ -72,6 +72,113 @@ class Game {
         }
     }
     
+    createSynthSound(frequency, duration, volume = 0.3) {
+        if (!this.audioContext) return null;
+        
+        try {
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            const filterNode = this.audioContext.createBiquadFilter();
+            
+            // Connect the chain: oscillator -> filter -> gain -> destination
+            oscillator.connect(filterNode);
+            filterNode.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            
+            // Set up oscillator
+            oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+            oscillator.type = 'sine';
+            
+            // Set up filter for a more synth-like sound
+            filterNode.type = 'lowpass';
+            filterNode.frequency.setValueAtTime(frequency * 2, this.audioContext.currentTime);
+            filterNode.Q.setValueAtTime(1, this.audioContext.currentTime);
+            
+            // Create an envelope with attack, sustain, and release
+            const now = this.audioContext.currentTime;
+            const attackTime = 0.01;
+            const releaseTime = duration * 0.3;
+            const sustainTime = duration - attackTime - releaseTime;
+            
+            // Envelope: quick attack, sustain, then exponential decay
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(volume, now + attackTime);
+            gainNode.gain.setValueAtTime(volume, now + attackTime + sustainTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
+            
+            return { oscillator, gainNode, duration };
+            
+        } catch (e) {
+            console.log('Sound creation failed:', e);
+            return null;
+        }
+    }
+    
+    playSound(frequency, duration, volume = 0.3) {
+        const sound = this.createSynthSound(frequency, duration, volume);
+        if (sound) {
+            try {
+                sound.oscillator.start(this.audioContext.currentTime);
+                sound.oscillator.stop(this.audioContext.currentTime + sound.duration);
+            } catch (e) {
+                console.log('Sound playback failed:', e);
+            }
+        }
+    }
+    
+    playJumpSound() {
+        // Higher pitched, shorter for crisp jump sound
+        this.playSound(523, 0.1, 0.4); // C5 note
+        console.log('Jump sound played');
+    }
+    
+    playCoinSound() {
+        // Bright, pleasant coin collection sound
+        this.playSound(880, 0.15, 0.5); // A5 note
+        console.log('Coin sound played');
+    }
+    
+    playDeathSound() {
+        // Descending sound with more dramatic envelope
+        if (!this.audioContext) return;
+        
+        try {
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            const filterNode = this.audioContext.createBiquadFilter();
+            
+            oscillator.connect(filterNode);
+            filterNode.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            
+            // Descending frequency sweep
+            const now = this.audioContext.currentTime;
+            const duration = 0.4;
+            
+            oscillator.frequency.setValueAtTime(330, now);
+            oscillator.frequency.linearRampToValueAtTime(165, now + duration);
+            oscillator.type = 'sawtooth'; // More dramatic for death sound
+            
+            // Filter sweep
+            filterNode.type = 'lowpass';
+            filterNode.frequency.setValueAtTime(1000, now);
+            filterNode.frequency.linearRampToValueAtTime(200, now + duration);
+            filterNode.Q.setValueAtTime(2, now);
+            
+            // Dramatic envelope
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(0.6, now + 0.02);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
+            
+            oscillator.start(now);
+            oscillator.stop(now + duration);
+            
+            console.log('Death sound played');
+        } catch (e) {
+            console.log('Death sound failed:', e);
+        }
+    }
+    
     setupGyroscope() {
         // Check if device orientation is supported
         if (window.DeviceOrientationEvent) {
@@ -133,71 +240,6 @@ class Game {
             gyroToggle.textContent = '🎯 Gyro: OFF';
             gyroToggle.classList.remove('enabled');
             console.log('Gyroscope disabled');
-        }
-    }
-    
-    playSound(frequency, duration, volume = 0.3) {
-        if (!this.audioContext) return;
-        
-        try {
-            const oscillator = this.audioContext.createOscillator();
-            const gainNode = this.audioContext.createGain();
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(this.audioContext.destination);
-            
-            oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
-            oscillator.type = 'sine';
-            
-            // Envelope for smooth sound
-            gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-            gainNode.gain.linearRampToValueAtTime(volume, this.audioContext.currentTime + 0.01);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration);
-            
-            oscillator.start(this.audioContext.currentTime);
-            oscillator.stop(this.audioContext.currentTime + duration);
-            
-        } catch (e) {
-            console.log('Sound playback failed:', e);
-        }
-    }
-    
-    playJumpSound() {
-        this.playSound(523, 0.1, 0.3); // C5 note
-        console.log('Jump sound played');
-    }
-    
-    playCoinSound() {
-        this.playSound(784, 0.15, 0.4); // G5 note
-        console.log('Coin sound played');
-    }
-    
-    playDeathSound() {
-        // Descending sound for death
-        if (!this.audioContext) return;
-        
-        try {
-            const oscillator = this.audioContext.createOscillator();
-            const gainNode = this.audioContext.createGain();
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(this.audioContext.destination);
-            
-            // Descending frequency
-            oscillator.frequency.setValueAtTime(300, this.audioContext.currentTime);
-            oscillator.frequency.linearRampToValueAtTime(150, this.audioContext.currentTime + 0.3);
-            oscillator.type = 'sine';
-            
-            gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-            gainNode.gain.linearRampToValueAtTime(0.4, this.audioContext.currentTime + 0.01);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.3);
-            
-            oscillator.start(this.audioContext.currentTime);
-            oscillator.stop(this.audioContext.currentTime + 0.3);
-            
-            console.log('Death sound played');
-        } catch (e) {
-            console.log('Death sound failed:', e);
         }
     }
     
@@ -582,12 +624,26 @@ class Game {
         player.castShadow = true;
         player.receiveShadow = true;
         
-        // Player physics properties
+        // Enhanced player physics properties
         player.velocity = new THREE.Vector3(0, 0, 0);
         player.onGround = false;
+        player.wasOnGround = false;
+        
+        // Improved timing controls
         player.jumpBufferTimer = 0;
         player.coyoteTimer = 0;
-        player.wasOnGround = false;
+        player.jumpBufferTime = 0.15;  // Increased for better feel
+        player.coyoteTime = 0.12;
+        
+        // Enhanced movement parameters
+        player.acceleration = 0.006;
+        player.maxSpeed = 0.1;
+        player.friction = 0.88;
+        player.size = 0.25;
+        
+        // Visual effects
+        player.squash = 1.0;
+        player.squashRecoverySpeed = 3.0;
         
         this.scene.add(player);
         return player;
@@ -795,59 +851,75 @@ class Game {
         const player = this.player;
         const vel = player.velocity;
         
-        // Store previous ground state
+        // Store previous ground state for coyote time
         player.wasOnGround = player.onGround;
         
         // Update timers
         if (player.coyoteTimer > 0) player.coyoteTimer -= deltaTime;
         if (player.jumpBufferTimer > 0) player.jumpBufferTimer -= deltaTime;
         
-        // Apply gravity
+        // Apply gravity when not on ground
         if (!player.onGround) {
             vel.y -= this.gravity;
         }
         
-        // Handle input
+        // Handle movement input with improved acceleration
         const moveDir = this.getMovementInput();
         
-        // Normalize movement
         if (moveDir.x !== 0 || moveDir.y !== 0) {
-            vel.x += moveDir.x * 0.006;
-            vel.z += moveDir.y * 0.006;
+            // Normalize movement vector
+            const length = Math.sqrt(moveDir.x * moveDir.x + moveDir.y * moveDir.y);
+            const normalizedX = moveDir.x / length;
+            const normalizedZ = moveDir.y / length;
+            
+            // Apply acceleration
+            vel.x += normalizedX * player.acceleration;
+            vel.z += normalizedZ * player.acceleration;
         }
         
-        // Jump
-        if (this.isKeyPressed('jump') && player.jumpBufferTimer <= 0 && 
-            (player.onGround || player.coyoteTimer > 0)) {
+        // Handle jumping with improved buffering
+        if (this.isKeyPressed('jump')) {
+            // Set jump buffer when jump is pressed
+            if (player.jumpBufferTimer <= 0) {
+                player.jumpBufferTimer = player.jumpBufferTime;
+            }
+        }
+        
+        // Execute jump if conditions are met
+        if (player.jumpBufferTimer > 0 && (player.onGround || player.coyoteTimer > 0)) {
             vel.y = this.jumpVelocity;
             player.onGround = false;
             player.coyoteTimer = 0;
-            player.jumpBufferTimer = 0.1;
-            console.log('Jump!');
+            player.jumpBufferTimer = 0;
+            player.squash = 1.3; // Visual squash effect
+            console.log('Jump executed!');
             this.playJumpSound();
         }
         
         // Apply friction
-        vel.x *= 0.88;
-        vel.z *= 0.88;
+        vel.x *= player.friction;
+        vel.z *= player.friction;
         
-        // Limit speed
+        // Limit horizontal speed
         const horizontalSpeed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
-        if (horizontalSpeed > 0.1) {
-            vel.x = (vel.x / horizontalSpeed) * 0.1;
-            vel.z = (vel.z / horizontalSpeed) * 0.1;
+        if (horizontalSpeed > player.maxSpeed) {
+            vel.x = (vel.x / horizontalSpeed) * player.maxSpeed;
+            vel.z = (vel.z / horizontalSpeed) * player.maxSpeed;
         }
         
         // Update position
         player.position.add(vel);
         
-        // Check collisions
-        this.checkCollisions(player);
+        // Check collisions with improved detection
+        this.checkCollisions(player, deltaTime);
         
-        // Coyote time
+        // Implement coyote time
         if (player.wasOnGround && !player.onGround) {
-            player.coyoteTimer = 0.12;
+            player.coyoteTimer = player.coyoteTime;
         }
+        
+        // Update visual effects
+        this.updatePlayerVisuals(player, deltaTime);
         
         // Reset if fallen
         if (player.position.y < -10) {
@@ -865,27 +937,89 @@ class Game {
         }
     }
     
-    checkCollisions(player) {
+    checkCollisions(player, deltaTime) {
         player.onGround = false;
+        const size = player.size;
         
         for (let platform of this.platforms) {
             const px = platform.x, py = platform.y, pz = platform.z;
             const pw = platform.width, ph = platform.height, pd = platform.depth;
             
-            // AABB collision detection
-            if (Math.abs(player.position.x - px) < pw/2 + 0.25 &&
-                Math.abs(player.position.z - pz) < pd/2 + 0.25 &&
-                player.position.y - 0.25 <= py + ph/2 &&
-                player.position.y - 0.25 > py + ph/2 - 0.2 &&
-                player.velocity.y <= 0) {
+            // Enhanced AABB collision detection
+            const playerLeft = player.position.x - size;
+            const playerRight = player.position.x + size;
+            const playerBottom = player.position.y - size;
+            const playerTop = player.position.y + size;
+            const playerFront = player.position.z - size;
+            const playerBack = player.position.z + size;
+            
+            const platformLeft = px - pw/2;
+            const platformRight = px + pw/2;
+            const platformBottom = py - ph/2;
+            const platformTop = py + ph/2;
+            const platformFront = pz - pd/2;
+            const platformBack = pz + pd/2;
+            
+            // Check for collision
+            const xOverlap = playerRight > platformLeft && playerLeft < platformRight;
+            const zOverlap = playerBack > platformFront && playerFront < platformBack;
+            const yOverlap = playerTop > platformBottom && playerBottom < platformTop;
+            
+            if (xOverlap && zOverlap) {
+                // Vertical collision (landing on platform)
+                if (player.velocity.y <= 0 && 
+                    playerBottom <= platformTop && 
+                    playerBottom >= platformTop - 0.3) {
+                    
+                    // Landing effect
+                    if (!player.wasOnGround && player.velocity.y < -0.05) {
+                        console.log('Landing detected!');
+                        player.squash = 1.4; // More pronounced landing squash
+                        // Could add particle effects here
+                    }
+                    
+                    player.position.y = platformTop + size;
+                    player.velocity.y = 0;
+                    player.onGround = true;
+                    player.coyoteTimer = 0;
+                    break;
+                }
                 
-                player.position.y = py + ph/2 + 0.25;
-                player.velocity.y = 0;
-                player.onGround = true;
-                player.coyoteTimer = 0;
-                break;
+                // Side collisions (basic wall blocking)
+                if (yOverlap) {
+                    if (player.velocity.x > 0 && playerRight > platformLeft && playerLeft < platformLeft) {
+                        player.position.x = platformLeft - size;
+                        player.velocity.x = 0;
+                    } else if (player.velocity.x < 0 && playerLeft < platformRight && playerRight > platformRight) {
+                        player.position.x = platformRight + size;
+                        player.velocity.x = 0;
+                    }
+                    
+                    if (player.velocity.z > 0 && playerBack > platformFront && playerFront < platformFront) {
+                        player.position.z = platformFront - size;
+                        player.velocity.z = 0;
+                    } else if (player.velocity.z < 0 && playerFront < platformBack && playerBack > platformBack) {
+                        player.position.z = platformBack + size;
+                        player.velocity.z = 0;
+                    }
+                }
             }
         }
+    }
+    
+    updatePlayerVisuals(player, deltaTime) {
+        // Handle squash effect recovery
+        if (player.squash > 1.0) {
+            player.squash -= deltaTime * player.squashRecoverySpeed;
+            if (player.squash < 1.0) {
+                player.squash = 1.0;
+            }
+        }
+        
+        // Apply squash to visual representation
+        const scale = 1.0 / player.squash;
+        const scaleXZ = player.squash;
+        player.scale.set(scaleXZ, scale, scaleXZ);
     }
     
     updateCoins(deltaTime) {
