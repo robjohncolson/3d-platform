@@ -32,7 +32,7 @@ class Game {
                 moveX: 0,
                 moveY: 0,
                 maxDistance: 80, // Maximum distance from start point
-                sensitivity: 0.3, // Reduce sensitivity for better control
+                sensitivity: 0.1, // Reduce sensitivity for better control
                 deadZone: 0.15, // Dead zone to prevent accidental movement
                 smoothing: 0.8 // Smoothing factor for more gradual movement
             },
