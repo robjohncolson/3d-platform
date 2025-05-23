@@ -19,17 +19,24 @@ class Game {
         
         // Input
         this.keys = {};
-        this.touchControls = {};
-        this.thumbstick = {
-            active: false,
-            touchId: null, // Track which touch is controlling the thumbstick
-            centerX: 0,
-            centerY: 0,
-            currentX: 0,
-            currentY: 0,
-            moveX: 0,
-            moveY: 0,
-            maxDistance: 35 // Maximum distance from center
+        
+        // Invisible touch zone system
+        this.touchZones = {
+            movement: {
+                active: false,
+                touchId: null,
+                startX: 0,
+                startY: 0,
+                currentX: 0,
+                currentY: 0,
+                moveX: 0,
+                moveY: 0,
+                maxDistance: 80 // Maximum distance from start point
+            },
+            jump: {
+                active: false,
+                touchId: null
+            }
         };
         
         // Game objects
@@ -288,295 +295,128 @@ class Game {
             this.keys[event.code] = false;
         });
         
-        // Thumbstick controls
-        this.setupThumbstick();
-        
-        // Jump button
-        const jumpButton = document.getElementById('jump');
-        
-        // Track jump button touch state
-        this.jumpTouchId = null;
-        
-        // Touch events for jump button - improved for multitouch
-        jumpButton.addEventListener('touchstart', (e) => {
-            // Only handle if we don't already have a touch on this button
-            if (this.jumpTouchId !== null) return;
-            
-            console.log('Jump button touch start:', e.type, e.touches?.length || 'mouse');
-            this.jumpTouchId = e.touches[0].identifier;
-            this.touchControls['jump'] = true;
-            jumpButton.classList.add('active');
-            this.resumeAudio();
-            
-            // Prevent default behaviors but don't stop propagation to avoid interfering with other touches
-            if (e.preventDefault) e.preventDefault();
-        }, { passive: false });
-        
-        jumpButton.addEventListener('touchend', (e) => {
-            // Check if our specific touch ended
-            let ourTouchEnded = false;
-            for (let i = 0; i < e.changedTouches.length; i++) {
-                if (e.changedTouches[i].identifier === this.jumpTouchId) {
-                    ourTouchEnded = true;
-                    break;
-                }
-            }
-            
-            if (ourTouchEnded) {
-                this.jumpTouchId = null;
-                this.touchControls['jump'] = false;
-                jumpButton.classList.remove('active');
-                console.log('Jump button touch end - our touch ended');
-            }
-            
-            // Only prevent default if we're handling this event
-            if (ourTouchEnded && e.preventDefault) e.preventDefault();
-        }, { passive: false });
-        
-        jumpButton.addEventListener('touchcancel', (e) => {
-            // Check if our specific touch was cancelled
-            let ourTouchCancelled = false;
-            for (let i = 0; i < e.changedTouches.length; i++) {
-                if (e.changedTouches[i].identifier === this.jumpTouchId) {
-                    ourTouchCancelled = true;
-                    break;
-                }
-            }
-            
-            if (ourTouchCancelled) {
-                this.jumpTouchId = null;
-                this.touchControls['jump'] = false;
-                jumpButton.classList.remove('active');
-                console.log('Jump button touch cancelled');
-            }
-        }, { passive: false });
-        
-        // Pointer events as fallback for jump button
-        jumpButton.addEventListener('pointerdown', (e) => {
-            console.log('Jump button pointer down:', e.type);
-            this.touchControls['jump'] = true;
-            jumpButton.classList.add('active');
-            this.resumeAudio();
-            
-            if (e.preventDefault) e.preventDefault();
-            return false;
-        });
-        
-        jumpButton.addEventListener('pointerup', (e) => {
-            this.touchControls['jump'] = false;
-            jumpButton.classList.remove('active');
-            
-            if (e.preventDefault) e.preventDefault();
-            return false;
-        });
-        
-        jumpButton.addEventListener('pointercancel', (e) => {
-            this.touchControls['jump'] = false;
-            jumpButton.classList.remove('active');
-        });
-        
-        // Mouse events for desktop testing
-        jumpButton.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            this.touchControls['jump'] = true;
-            jumpButton.classList.add('active');
-            this.resumeAudio();
-        });
-        
-        jumpButton.addEventListener('mouseup', (e) => {
-            e.preventDefault();
-            this.touchControls['jump'] = false;
-            jumpButton.classList.remove('active');
-        });
+        // Invisible touch zone system
+        this.setupInvisibleTouchZones();
         
         // Prevent context menu on long press
         document.addEventListener('contextmenu', (e) => e.preventDefault());
     }
     
-    setupThumbstick() {
-        const thumbstick = document.getElementById('thumbstick');
-        const container = thumbstick.parentElement;
+    setupInvisibleTouchZones() {
+        const canvas = document.getElementById('gameCanvas');
         
-        // Get center position of thumbstick
-        const updateCenter = () => {
-            const rect = container.getBoundingClientRect();
-            this.thumbstick.centerX = rect.left + rect.width / 2;
-            this.thumbstick.centerY = rect.top + rect.height / 2;
-        };
-        
-        updateCenter();
-        window.addEventListener('resize', updateCenter);
-        
-        // Improved touch events with better multitouch support
-        const handleStart = (e) => {
-            // Only handle if thumbstick isn't already active
-            if (this.thumbstick.active) return;
-            
-            console.log('Thumbstick touch start:', e.type, e.touches?.length || 'mouse');
-            this.thumbstick.active = true;
-            this.thumbstick.touchId = e.touches ? e.touches[0].identifier : 'mouse';
-            thumbstick.classList.add('active');
-            updateCenter();
-            
-            const touch = e.touches ? e.touches[0] : e;
-            this.updateThumbstick(touch.clientX, touch.clientY);
+        // Touch event handlers for the invisible zones
+        const handleTouchStart = (e) => {
             this.resumeAudio();
             
-            // Prevent scrolling and other default behaviors
-            if (e.preventDefault) e.preventDefault();
-            return false;
-        };
-        
-        const handleMove = (e) => {
-            if (!this.thumbstick.active) return;
-            
-            // Find the correct touch by identifier
-            let touch = null;
-            if (e.touches && this.thumbstick.touchId !== 'mouse') {
-                for (let i = 0; i < e.touches.length; i++) {
-                    if (e.touches[i].identifier === this.thumbstick.touchId) {
-                        touch = e.touches[i];
-                        break;
-                    }
-                }
-                if (!touch) return; // Our touch is not in the current touches
-            } else if (!e.touches) {
-                touch = e; // Mouse event
-            }
-            
-            if (touch) {
-                this.updateThumbstick(touch.clientX, touch.clientY);
-            }
-            
-            // Prevent scrolling and other default behaviors
-            if (e.preventDefault) e.preventDefault();
-            return false;
-        };
-        
-        const handleEnd = (e) => {
-            if (!this.thumbstick.active) return;
-            
-            // Check if our specific touch ended
-            let ourTouchEnded = false;
-            if (e.changedTouches && this.thumbstick.touchId !== 'mouse') {
-                for (let i = 0; i < e.changedTouches.length; i++) {
-                    if (e.changedTouches[i].identifier === this.thumbstick.touchId) {
-                        ourTouchEnded = true;
-                        break;
-                    }
-                }
-            } else if (!e.changedTouches) {
-                ourTouchEnded = true; // Mouse event
-            }
-            
-            if (ourTouchEnded) {
-                console.log('Thumbstick touch end - our touch ended');
-                this.thumbstick.active = false;
-                this.thumbstick.touchId = null;
-                thumbstick.classList.remove('active');
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                const x = touch.clientX;
+                const y = touch.clientY;
+                const screenWidth = window.innerWidth;
                 
-                // Reset to center
-                this.thumbstick.moveX = 0;
-                this.thumbstick.moveY = 0;
-                thumbstick.style.transform = 'translate(-50%, -50%)';
+                // Determine which zone was touched
+                if (x < screenWidth / 2) {
+                    // Left half - movement control
+                    if (!this.touchZones.movement.active) {
+                        this.touchZones.movement.active = true;
+                        this.touchZones.movement.touchId = touch.identifier;
+                        this.touchZones.movement.startX = x;
+                        this.touchZones.movement.startY = y;
+                        this.touchZones.movement.currentX = 0;
+                        this.touchZones.movement.currentY = 0;
+                        this.touchZones.movement.moveX = 0;
+                        this.touchZones.movement.moveY = 0;
+                        console.log('Movement zone activated');
+                        this.updateTouchDebug();
+                    }
+                } else {
+                    // Right half - jump control
+                    if (!this.touchZones.jump.active) {
+                        this.touchZones.jump.active = true;
+                        this.touchZones.jump.touchId = touch.identifier;
+                        console.log('Jump zone activated');
+                        this.updateTouchDebug();
+                    }
+                }
             }
             
-            // Only prevent default if we're handling this event
-            if (ourTouchEnded && e.preventDefault) e.preventDefault();
+            e.preventDefault();
         };
         
-        // Touch events - only add move/end listeners when thumbstick is active
-        thumbstick.addEventListener('touchstart', (e) => {
-            handleStart(e);
-            
-            // Add document listeners only when thumbstick becomes active
-            if (this.thumbstick.active) {
-                document.addEventListener('touchmove', this.thumbstickMoveHandler, { passive: false });
-                document.addEventListener('touchend', this.thumbstickEndHandler, { passive: false });
-                document.addEventListener('touchcancel', this.thumbstickEndHandler, { passive: false });
+        const handleTouchMove = (e) => {
+            for (let i = 0; i < e.touches.length; i++) {
+                const touch = e.touches[i];
+                
+                // Check if this is our movement touch
+                if (this.touchZones.movement.active && 
+                    touch.identifier === this.touchZones.movement.touchId) {
+                    
+                    const deltaX = touch.clientX - this.touchZones.movement.startX;
+                    const deltaY = touch.clientY - this.touchZones.movement.startY;
+                    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                    
+                    if (distance <= this.touchZones.movement.maxDistance) {
+                        this.touchZones.movement.currentX = deltaX;
+                        this.touchZones.movement.currentY = deltaY;
+                    } else {
+                        // Clamp to max distance
+                        const angle = Math.atan2(deltaY, deltaX);
+                        this.touchZones.movement.currentX = Math.cos(angle) * this.touchZones.movement.maxDistance;
+                        this.touchZones.movement.currentY = Math.sin(angle) * this.touchZones.movement.maxDistance;
+                    }
+                    
+                    // Calculate normalized movement (-1 to 1)
+                    this.touchZones.movement.moveX = this.touchZones.movement.currentX / this.touchZones.movement.maxDistance;
+                    this.touchZones.movement.moveY = this.touchZones.movement.currentY / this.touchZones.movement.maxDistance;
+                    
+                    this.updateTouchDebug();
+                    break;
+                }
             }
-        }, { passive: false });
-        
-        // Store handlers so we can remove them
-        this.thumbstickMoveHandler = handleMove;
-        this.thumbstickEndHandler = (e) => {
-            handleEnd(e);
             
-            // Remove document listeners when thumbstick becomes inactive
-            if (!this.thumbstick.active) {
-                document.removeEventListener('touchmove', this.thumbstickMoveHandler);
-                document.removeEventListener('touchend', this.thumbstickEndHandler);
-                document.removeEventListener('touchcancel', this.thumbstickEndHandler);
-            }
+            e.preventDefault();
         };
         
-        // Pointer events as fallback (often more reliable on some devices)
-        thumbstick.addEventListener('pointerdown', (e) => {
-            handleStart(e);
-            
-            if (this.thumbstick.active) {
-                document.addEventListener('pointermove', this.thumbstickPointerMoveHandler);
-                document.addEventListener('pointerup', this.thumbstickPointerEndHandler);
-                document.addEventListener('pointercancel', this.thumbstickPointerEndHandler);
+        const handleTouchEnd = (e) => {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                
+                // Check if movement touch ended
+                if (this.touchZones.movement.active && 
+                    touch.identifier === this.touchZones.movement.touchId) {
+                    
+                    this.touchZones.movement.active = false;
+                    this.touchZones.movement.touchId = null;
+                    this.touchZones.movement.moveX = 0;
+                    this.touchZones.movement.moveY = 0;
+                    this.touchZones.movement.currentX = 0;
+                    this.touchZones.movement.currentY = 0;
+                    console.log('Movement zone deactivated');
+                    this.updateTouchDebug();
+                }
+                
+                // Check if jump touch ended
+                if (this.touchZones.jump.active && 
+                    touch.identifier === this.touchZones.jump.touchId) {
+                    
+                    this.touchZones.jump.active = false;
+                    this.touchZones.jump.touchId = null;
+                    console.log('Jump zone deactivated');
+                    this.updateTouchDebug();
+                }
             }
-        });
-        
-        // Store pointer handlers
-        this.thumbstickPointerMoveHandler = handleMove;
-        this.thumbstickPointerEndHandler = (e) => {
-            handleEnd(e);
             
-            if (!this.thumbstick.active) {
-                document.removeEventListener('pointermove', this.thumbstickPointerMoveHandler);
-                document.removeEventListener('pointerup', this.thumbstickPointerEndHandler);
-                document.removeEventListener('pointercancel', this.thumbstickPointerEndHandler);
-            }
+            e.preventDefault();
         };
         
-        // Mouse events for desktop testing
-        thumbstick.addEventListener('mousedown', (e) => {
-            handleStart(e);
-            
-            if (this.thumbstick.active) {
-                document.addEventListener('mousemove', this.thumbstickMouseMoveHandler);
-                document.addEventListener('mouseup', this.thumbstickMouseEndHandler);
-            }
-        });
+        // Add touch event listeners to the canvas
+        canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+        canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
         
-        // Store mouse handlers
-        this.thumbstickMouseMoveHandler = handleMove;
-        this.thumbstickMouseEndHandler = (e) => {
-            handleEnd(e);
-            
-            if (!this.thumbstick.active) {
-                document.removeEventListener('mousemove', this.thumbstickMouseMoveHandler);
-                document.removeEventListener('mouseup', this.thumbstickMouseEndHandler);
-            }
-        };
-    }
-    
-    updateThumbstick(clientX, clientY) {
-        const deltaX = clientX - this.thumbstick.centerX;
-        const deltaY = clientY - this.thumbstick.centerY;
-        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-        
-        if (distance <= this.thumbstick.maxDistance) {
-            this.thumbstick.currentX = deltaX;
-            this.thumbstick.currentY = deltaY;
-        } else {
-            // Clamp to max distance
-            const angle = Math.atan2(deltaY, deltaX);
-            this.thumbstick.currentX = Math.cos(angle) * this.thumbstick.maxDistance;
-            this.thumbstick.currentY = Math.sin(angle) * this.thumbstick.maxDistance;
-        }
-        
-        // Calculate normalized movement (-1 to 1)
-        this.thumbstick.moveX = this.thumbstick.currentX / this.thumbstick.maxDistance;
-        this.thumbstick.moveY = this.thumbstick.currentY / this.thumbstick.maxDistance;
-        
-        // Update visual position
-        const thumbstick = document.getElementById('thumbstick');
-        thumbstick.style.transform = `translate(calc(-50% + ${this.thumbstick.currentX}px), calc(-50% + ${this.thumbstick.currentY}px))`;
+        console.log('Invisible touch zones setup complete - left half: movement, right half: jump');
     }
     
     resumeAudio() {
@@ -590,14 +430,14 @@ class Game {
     isKeyPressed(key) {
         // Check keyboard and touch controls
         switch(key) {
-            case 'jump': return this.keys['Space'] || this.keys['ShiftLeft'] || this.keys['ShiftRight'] || this.touchControls['jump'];
+            case 'jump': return this.keys['Space'] || this.keys['ShiftLeft'] || this.keys['ShiftRight'] || this.touchZones.jump.active;
             case 'restart': return this.keys['KeyR'];
             default: return false;
         }
     }
     
     getMovementInput() {
-        // Combine keyboard and thumbstick input
+        // Combine keyboard and touch zones input
         let moveX = 0, moveY = 0;
         
         // Keyboard input
@@ -606,10 +446,10 @@ class Game {
         if (this.keys['KeyA'] || this.keys['ArrowLeft']) moveX -= 1;
         if (this.keys['KeyD'] || this.keys['ArrowRight']) moveX += 1;
         
-        // Thumbstick input (override keyboard if active)
-        if (this.thumbstick.active) {
-            moveX = this.thumbstick.moveX;
-            moveY = this.thumbstick.moveY;
+        // Touch zones input (override keyboard if active)
+        if (this.touchZones.movement.active) {
+            moveX = this.touchZones.movement.moveX;
+            moveY = this.touchZones.movement.moveY;
         }
         
         return { x: moveX, y: moveY };
@@ -1188,6 +1028,29 @@ class Game {
         }
         
         this.renderer.render(this.scene, this.camera);
+    }
+    
+    updateTouchDebug() {
+        const debugElement = document.getElementById('touch-debug');
+        if (debugElement) {
+            let status = 'Touch: ';
+            
+            if (this.touchZones.movement.active) {
+                const x = this.touchZones.movement.moveX.toFixed(2);
+                const y = this.touchZones.movement.moveY.toFixed(2);
+                status += `Movement(${x},${y}) `;
+            } else {
+                status += 'Movement(OFF) ';
+            }
+            
+            if (this.touchZones.jump.active) {
+                status += 'Jump(ON)';
+            } else {
+                status += 'Jump(OFF)';
+            }
+            
+            debugElement.textContent = status;
+        }
     }
 }
 
