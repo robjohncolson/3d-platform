@@ -425,6 +425,7 @@ class Game:
         self.level = level_num
         
         if level_num == 1:
+            # Tutorial level - simple jumps
             self.platforms = [
                 [0, -0.5, 0, 4, 0.5, 4],      # Base
                 [0, -0.2, -2, 1.5, 0.3, 1.5],
@@ -440,6 +441,7 @@ class Game:
                 [2, 1.7, 2], [0, 2.1, 3], [-2, 2.5, 2]
             ]
         elif level_num == 2:
+            # Precision jumping
             self.platforms = [
                 [0, -0.5, 0, 4, 0.5, 4],
                 [1, -0.2, -3, 1, 0.2, 1],
@@ -458,6 +460,76 @@ class Game:
                 [1, 0.5, -3], [3, 0.8, -2], [4, 1.2, 0], [3, 1.6, 2],
                 [1, 2.0, 3], [-1, 2.4, 3], [-3, 2.8, 2], [-4, 3.2, 0],
                 [-3, 3.6, -2], [-1, 4.0, -3]
+            ]
+        elif level_num == 3:
+            # Spiral tower
+            self.platforms = [
+                [0, -0.5, 0, 3, 0.5, 3],      # Base
+                [2, 0.0, 0, 1, 0.2, 1],       # Start spiral
+                [2, 0.4, -2, 1, 0.2, 1],
+                [0, 0.8, -3, 1, 0.2, 1],
+                [-2, 1.2, -2, 1, 0.2, 1],
+                [-3, 1.6, 0, 1, 0.2, 1],
+                [-2, 2.0, 2, 1, 0.2, 1],
+                [0, 2.4, 3, 1, 0.2, 1],
+                [2, 2.8, 2, 1, 0.2, 1],
+                [3, 3.2, 0, 1, 0.2, 1],
+                [2, 3.6, -1, 1, 0.2, 1],
+                [0, 4.0, -2, 2, 0.2, 2],     # Top platform
+            ]
+            self.platform_colors = [DARK_GREEN] + [RED] * 11
+            self.coins = [
+                [2, 0.7, 0], [2, 1.1, -2], [0, 1.5, -3], [-2, 1.9, -2],
+                [-3, 2.3, 0], [-2, 2.7, 2], [0, 3.1, 3], [2, 3.5, 2],
+                [3, 3.9, 0], [2, 4.3, -1], [0, 4.7, -2]
+            ]
+        elif level_num == 4:
+            # Long jumps and gaps
+            self.platforms = [
+                [0, -0.5, 0, 2, 0.5, 2],      # Start
+                [4, 0.0, 0, 1.5, 0.3, 1.5],   # Long jump
+                [8, 0.3, -1, 1, 0.3, 1],
+                [6, 0.8, -4, 1, 0.3, 1],
+                [2, 1.2, -5, 1, 0.3, 1],
+                [-2, 1.6, -4, 1, 0.3, 1],
+                [-5, 2.0, -1, 1, 0.3, 1],
+                [-7, 2.4, 2, 1, 0.3, 1],
+                [-4, 2.8, 5, 1, 0.3, 1],
+                [0, 3.2, 6, 1, 0.3, 1],
+                [4, 3.6, 4, 1, 0.3, 1],
+                [7, 4.0, 1, 1.5, 0.3, 1.5],
+            ]
+            self.platform_colors = [DARK_GREEN] + [YELLOW] * 11
+            self.coins = [
+                [4, 0.7, 0], [8, 1.0, -1], [6, 1.5, -4], [2, 1.9, -5],
+                [-2, 2.3, -4], [-5, 2.7, -1], [-7, 3.1, 2], [-4, 3.5, 5],
+                [0, 3.9, 6], [4, 4.3, 4], [7, 4.7, 1]
+            ]
+        elif level_num == 5:
+            # Moving maze (static for now, but complex layout)
+            self.platforms = [
+                [0, -0.5, 0, 2, 0.5, 2],      # Start
+                [3, 0.0, 0, 1, 0.2, 3],       # Wall
+                [1, 0.4, 3, 3, 0.2, 1],
+                [-1, 0.8, 5, 1, 0.2, 1],
+                [-4, 1.2, 4, 1, 0.2, 3],
+                [-6, 1.6, 1, 3, 0.2, 1],
+                [-4, 2.0, -1, 1, 0.2, 1],
+                [-1, 2.4, -2, 1, 0.2, 3],
+                [2, 2.8, -1, 1, 0.2, 1],
+                [5, 3.2, 0, 1, 0.2, 3],
+                [3, 3.6, 3, 3, 0.2, 1],
+                [0, 4.0, 5, 1, 0.2, 1],
+                [-3, 4.4, 3, 1, 0.2, 1],
+                [-5, 4.8, 0, 1, 0.2, 1],
+                [-2, 5.2, -2, 3, 0.2, 1],    # Final platform
+            ]
+            self.platform_colors = [DARK_GREEN] + [WHITE] * 14
+            self.coins = [
+                [3, 0.7, 1], [1, 1.1, 3], [-1, 1.5, 5], [-4, 1.9, 3],
+                [-6, 2.3, 1], [-4, 2.7, -1], [-1, 3.1, -1], [2, 3.5, -1],
+                [5, 3.9, 1], [3, 4.3, 3], [0, 4.7, 5], [-3, 5.1, 3],
+                [-5, 5.5, 0], [-2, 5.9, -2]
             ]
         
         self.player.reset()
@@ -729,15 +801,20 @@ class Game:
         print(f"Level {self.level} restarted")
     
     def next_level(self):
-        if self.level < 2:
+        if self.level < 5:
             self.level += 1
             self.load_level(self.level)
             self.game_state = "playing"
             print(f"Starting Level {self.level}")
         else:
-            print("Congratulations! You completed all levels!")
-            self.game_state = "playing"
+            print("🎉 CONGRATULATIONS! You completed ALL 5 levels! 🎉")
+            print(f"Final Score: {self.score}")
             self.save_system.update_high_score(self.score)
+            # Restart from level 1 for replay
+            self.level = 1
+            self.load_level(1)
+            self.game_state = "playing"
+            print("Restarting from Level 1...")
     
     def run(self):
         running = True
