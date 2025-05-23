@@ -110,9 +110,10 @@
             height: 200px;
             z-index: 100;
             pointer-events: none;
-            padding-bottom: max(20px, env(safe-area-inset-bottom));
-            padding-left: max(20px, env(safe-area-inset-left));
-            padding-right: max(20px, env(safe-area-inset-right));
+            padding-bottom: max(40px, env(safe-area-inset-bottom, 40px));
+            padding-left: max(20px, env(safe-area-inset-left, 20px));
+            padding-right: max(20px, env(safe-area-inset-right, 20px));
+            min-height: 160px;
         }
         
         .control-group {
@@ -121,8 +122,8 @@
         }
         
         .thumbstick-container {
-            bottom: 30px;
-            left: 30px;
+            bottom: 40px;
+            left: 40px;
             width: 120px;
             height: 120px;
         }
@@ -162,8 +163,8 @@
         }
         
         .jump-container {
-            bottom: 30px;
-            right: 30px;
+            bottom: 40px;
+            right: 40px;
         }
         
         .jump-btn {
@@ -212,14 +213,18 @@
             }
             
             #controls {
-                padding-bottom: max(30px, env(safe-area-inset-bottom));
-                padding-left: max(30px, env(safe-area-inset-left));
-                padding-right: max(30px, env(safe-area-inset-right));
+                /* Enhanced mobile safe area handling */
+                padding-bottom: max(50px, env(safe-area-inset-bottom, 50px));
+                padding-left: max(30px, env(safe-area-inset-left, 30px));
+                padding-right: max(30px, env(safe-area-inset-right, 30px));
+                min-height: 180px;
+                /* Add visual debugging - remove after testing */
+                /* background: rgba(255, 0, 0, 0.1); */
             }
             
             .thumbstick-container {
-                bottom: 20px;
-                left: 20px;
+                bottom: 50px;
+                left: 30px;
                 width: 100px;
                 height: 100px;
             }
@@ -235,8 +240,8 @@
             }
             
             .jump-container {
-                bottom: 20px;
-                right: 20px;
+                bottom: 50px;
+                right: 30px;
             }
             
             .jump-btn {
@@ -277,17 +282,44 @@
             }
         }
         
-        /* Landscape orientation adjustments */
-        @media (orientation: landscape) and (max-height: 500px) {
+        /* Extra rules for devices with home indicators and notches */
+        @media (max-height: 600px) {
             #controls {
-                /* Reduce height for landscape mode */
-                height: 140px;
-                padding-bottom: max(15px, env(safe-area-inset-bottom));
+                /* Ensure controls are visible on short screens */
+                padding-bottom: max(60px, env(safe-area-inset-bottom, 60px));
+                height: 180px;
+                min-height: 160px;
             }
             
             .thumbstick-container {
-                bottom: 15px;
-                left: 15px;
+                bottom: 60px;
+            }
+            
+            .jump-container {
+                bottom: 60px;
+            }
+        }
+        
+        /* iPhone X and similar devices with home indicator */
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            #controls {
+                /* Ensure home indicator doesn't interfere */
+                padding-bottom: max(70px, calc(env(safe-area-inset-bottom) + 30px));
+            }
+        }
+        
+        /* Landscape orientation adjustments */
+        @media (orientation: landscape) and (max-height: 500px) {
+            #controls {
+                /* Ensure controls are visible in landscape mode */
+                height: 160px;
+                padding-bottom: max(30px, env(safe-area-inset-bottom, 30px));
+                min-height: 140px;
+            }
+            
+            .thumbstick-container {
+                bottom: 30px;
+                left: 20px;
                 width: 90px;
                 height: 90px;
             }
@@ -303,8 +335,8 @@
             }
             
             .jump-container {
-                bottom: 15px;
-                right: 15px;
+                bottom: 30px;
+                right: 20px;
             }
             
             .jump-btn {
