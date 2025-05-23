@@ -5,6 +5,7 @@ from OpenGL.GLU import *
 import math
 import json
 import os
+import time
 
 # Initialize pygame and OpenGL
 pygame.init()
@@ -264,17 +265,23 @@ class LevelEditor:
         self.mouse_captured = False
         pygame.mouse.set_visible(True)
         
+        # File handling - no more input() calls!
+        self.current_level_name = "my_level"
+        self.save_slot = 1
+        
         print("3D Level Editor Controls:")
-        print("Camera: WASD - Move, Q/E - Up/Down, Mouse - Look (Right-click drag)")
+        print("Camera: WASD - Move, Q/E - Up/Down, Right-click+drag - Look around")
         print("F1 - Platform mode, F2 - Coin mode")
         print("Left Click - Select/Place object")
         print("Delete - Remove selected object")
-        print("Arrow Keys - Move selected object")
+        print("Arrow Keys - Move selected object, PageUp/PageDown - Move up/down")
         print("Shift+Arrow Keys - Resize selected platform")
         print("C - Change platform color")
         print("G - Toggle grid snap")
-        print("S - Save level, L - Load level")
+        print("S - Quick save (saves as 'my_level_1.json')")
+        print("L - Quick load, 1-5 - Load save slot 1-5")
         print("R - Reset level")
+        print("ESC - Exit editor")
         
     def snap_to_grid_pos(self, pos):
         if self.snap_to_grid:
@@ -289,7 +296,9 @@ class LevelEditor:
                 return False
                 
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_F1:
+                if event.key == pygame.K_ESCAPE:
+                    return False
+                elif event.key == pygame.K_F1:
                     self.mode = "platform"
                     print("Platform mode")
                 elif event.key == pygame.K_F2:
@@ -303,37 +312,46 @@ class LevelEditor:
                     self.snap_to_grid = not self.snap_to_grid
                     print(f"Grid snap: {'ON' if self.snap_to_grid else 'OFF'}")
                 elif event.key == pygame.K_s:
-                    self.save_level()
+                    self.quick_save()
                 elif event.key == pygame.K_l:
-                    self.load_level()
+                    self.quick_load()
                 elif event.key == pygame.K_r:
                     self.reset_level()
+                # Number keys for save slots
+                elif event.key >= pygame.K_1 and event.key <= pygame.K_5:
+                    self.save_slot = event.key - pygame.K_1 + 1
+                    self.quick_load()
                 # Movement keys for selected objects
                 elif event.key == pygame.K_UP:
-                    self.move_selected([0, 0, -0.5] if not pygame.key.get_pressed()[pygame.K_LSHIFT] else [0, 0, 0])
+                    if pygame.key.get_pressed()[pygame.K_LSHIFT]:
+                        self.resize_selected([0, 0, -0.5])
+                    else:
+                        self.move_selected([0, 0, -0.5])
                 elif event.key == pygame.K_DOWN:
-                    self.move_selected([0, 0, 0.5] if not pygame.key.get_pressed()[pygame.K_LSHIFT] else [0, 0, 0])
+                    if pygame.key.get_pressed()[pygame.K_LSHIFT]:
+                        self.resize_selected([0, 0, 0.5])
+                    else:
+                        self.move_selected([0, 0, 0.5])
                 elif event.key == pygame.K_LEFT:
-                    self.move_selected([-0.5, 0, 0] if not pygame.key.get_pressed()[pygame.K_LSHIFT] else [0, 0, 0])
+                    if pygame.key.get_pressed()[pygame.K_LSHIFT]:
+                        self.resize_selected([-0.5, 0, 0])
+                    else:
+                        self.move_selected([-0.5, 0, 0])
                 elif event.key == pygame.K_RIGHT:
-                    self.move_selected([0.5, 0, 0] if not pygame.key.get_pressed()[pygame.K_LSHIFT] else [0, 0, 0])
+                    if pygame.key.get_pressed()[pygame.K_LSHIFT]:
+                        self.resize_selected([0.5, 0, 0])
+                    else:
+                        self.move_selected([0.5, 0, 0])
                 elif event.key == pygame.K_PAGEUP:
-                    self.move_selected([0, 0.5, 0])
+                    if pygame.key.get_pressed()[pygame.K_LSHIFT]:
+                        self.resize_selected([0, 0.5, 0])
+                    else:
+                        self.move_selected([0, 0.5, 0])
                 elif event.key == pygame.K_PAGEDOWN:
-                    self.move_selected([0, -0.5, 0])
-                # Resize with Shift+Arrow keys
-                elif event.key == pygame.K_UP and pygame.key.get_pressed()[pygame.K_LSHIFT]:
-                    self.resize_selected([0, 0, -0.5])
-                elif event.key == pygame.K_DOWN and pygame.key.get_pressed()[pygame.K_LSHIFT]:
-                    self.resize_selected([0, 0, 0.5])
-                elif event.key == pygame.K_LEFT and pygame.key.get_pressed()[pygame.K_LSHIFT]:
-                    self.resize_selected([-0.5, 0, 0])
-                elif event.key == pygame.K_RIGHT and pygame.key.get_pressed()[pygame.K_LSHIFT]:
-                    self.resize_selected([0.5, 0, 0])
-                elif event.key == pygame.K_EQUALS and pygame.key.get_pressed()[pygame.K_LSHIFT]:
-                    self.resize_selected([0, 0.5, 0])
-                elif event.key == pygame.K_MINUS and pygame.key.get_pressed()[pygame.K_LSHIFT]:
-                    self.resize_selected([0, -0.5, 0])
+                    if pygame.key.get_pressed()[pygame.K_LSHIFT]:
+                        self.resize_selected([0, -0.5, 0])
+                    else:
+                        self.move_selected([0, -0.5, 0])
             
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left click
@@ -458,9 +476,8 @@ class LevelEditor:
             for i in range(3):
                 self.platforms[self.selected_platform][3 + i] = max(0.1, self.platforms[self.selected_platform][3 + i] + delta[i])
     
-    def save_level(self):
-        filename = input("Enter filename (without .json): ") or "custom_level"
-        filename += ".json"
+    def quick_save(self):
+        filename = f"{self.current_level_name}_{self.save_slot}.json"
         
         # Convert to game format
         platforms_data = []
@@ -483,9 +500,8 @@ class LevelEditor:
         except Exception as e:
             print(f"Error saving: {e}")
     
-    def load_level(self):
-        filename = input("Enter filename (without .json): ") or "custom_level"
-        filename += ".json"
+    def quick_load(self):
+        filename = f"{self.current_level_name}_{self.save_slot}.json"
         
         try:
             with open(filename, 'r') as f:
@@ -514,6 +530,8 @@ class LevelEditor:
             self.selected_coin = None
             print(f"Level loaded from {filename}")
             
+        except FileNotFoundError:
+            print(f"No save file found: {filename}")
         except Exception as e:
             print(f"Error loading: {e}")
     
@@ -578,14 +596,13 @@ class LevelEditor:
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glBegin(GL_QUADS)
         glVertex2f(10, display_height - 200)
-        glVertex2f(300, display_height - 200)
-        glVertex2f(300, display_height - 10)
+        glVertex2f(350, display_height - 200)
+        glVertex2f(350, display_height - 10)
         glVertex2f(10, display_height - 10)
         glEnd()
         glDisable(GL_BLEND)
         
         # Mode indicator
-        glColor3f(1, 1, 1)
         y = display_height - 30
         
         # Mode (simple text representation)
@@ -609,12 +626,26 @@ class LevelEditor:
             glVertex2f(90, y)
             glEnd()
         
+        # Save slot indicator
+        glColor3f(0.8, 0.8, 0.8)
+        for i in range(5):
+            x = 140 + i * 20
+            if i + 1 == self.save_slot:
+                glColor3f(1, 1, 1)  # Bright for current slot
+            else:
+                glColor3f(0.4, 0.4, 0.4)  # Dark for other slots
+            glBegin(GL_QUADS)
+            glVertex2f(x, y - 15)
+            glVertex2f(x + 15, y - 15)
+            glVertex2f(x + 15, y)
+            glVertex2f(x, y)
+            glEnd()
+        
         # Object count
-        glColor3f(1, 1, 1)
         platform_count = len(self.platforms)
         coin_count = len(self.coins)
         
-        # Draw simple counters
+        # Draw platform counter
         for i in range(min(platform_count, 20)):
             x = 20 + i * 12
             glColor3f(0, 1, 0)
@@ -625,6 +656,7 @@ class LevelEditor:
             glVertex2f(x, y - 30)
             glEnd()
         
+        # Draw coin counter
         for i in range(min(coin_count, 20)):
             x = 20 + i * 12
             glColor3f(1, 1, 0)
@@ -648,21 +680,21 @@ class LevelEditor:
         if self.selected_platform is not None:
             platform = self.platforms[self.selected_platform]
             glColor3f(1, 1, 0)
-            # Draw selection indicator
+            # Draw platform selection indicator
             glBegin(GL_QUADS)
-            glVertex2f(200, y - 40)
-            glVertex2f(280, y - 40)
-            glVertex2f(280, y - 30)
-            glVertex2f(200, y - 30)
+            glVertex2f(260, y - 40)
+            glVertex2f(340, y - 40)
+            glVertex2f(340, y - 30)
+            glVertex2f(260, y - 30)
             glEnd()
         elif self.selected_coin is not None:
             glColor3f(1, 1, 0)
             # Draw coin selection indicator
             glBegin(GL_QUADS)
-            glVertex2f(200, y - 60)
-            glVertex2f(280, y - 60)
-            glVertex2f(280, y - 50)
-            glVertex2f(200, y - 50)
+            glVertex2f(260, y - 60)
+            glVertex2f(340, y - 60)
+            glVertex2f(340, y - 50)
+            glVertex2f(260, y - 50)
             glEnd()
         
         # Restore 3D
