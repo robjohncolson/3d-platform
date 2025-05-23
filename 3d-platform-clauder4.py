@@ -599,6 +599,9 @@ class Game:
         # Draw player
         self.player.draw()
         
+        # Draw shadow
+        draw_shadow(self.player.x, self.player.y, self.player.z)
+        
         # Draw particles
         self.particles.draw()
         
@@ -752,6 +755,39 @@ class Game:
             self.clock.tick(60)
         
         pygame.quit()
+
+def draw_shadow(player_x, player_y, player_z, shadow_size=0.3):
+    # Calculate shadow opacity based on height (higher = more transparent)
+    height = max(0, player_y - 0.5)  # Assume ground is around y=0.5
+    max_height = 3.0
+    opacity = max(0.2, 1.0 - (height / max_height))
+    
+    glPushMatrix()
+    glTranslatef(player_x, 0.51, player_z)  # Slightly above ground to avoid z-fighting
+    
+    # Disable lighting for shadow
+    glDisable(GL_LIGHTING)
+    glEnable(GL_BLEND)
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+    
+    # Dark gray shadow with opacity
+    glColor4f(0.1, 0.1, 0.1, opacity)
+    
+    # Draw shadow as a simple circle made of triangles
+    glBegin(GL_TRIANGLE_FAN)
+    glVertex3f(0, 0, 0)  # Center
+    segments = 12
+    for i in range(segments + 1):
+        angle = (i / segments) * 2 * math.pi
+        x = shadow_size * math.cos(angle)
+        z = shadow_size * math.sin(angle)
+        glVertex3f(x, 0, z)
+    glEnd()
+    
+    # Re-enable lighting and disable blend
+    glDisable(GL_BLEND)
+    glEnable(GL_LIGHTING)
+    glPopMatrix()
 
 # Run the game
 if __name__ == "__main__":
