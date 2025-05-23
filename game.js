@@ -39,7 +39,85 @@ class Game {
         this.lastTime = performance.now();
         this.coinRotation = 0;
         
+        // Sound system
+        this.audioContext = null;
+        this.setupAudio();
+        
         this.init();
+    }
+    
+    setupAudio() {
+        try {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            console.log('Audio system initialized');
+        } catch (e) {
+            console.log('Audio not supported');
+        }
+    }
+    
+    playSound(frequency, duration, volume = 0.3) {
+        if (!this.audioContext) return;
+        
+        try {
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+            oscillator.type = 'sine';
+            
+            // Envelope for smooth sound
+            gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(volume, this.audioContext.currentTime + 0.01);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration);
+            
+            oscillator.start(this.audioContext.currentTime);
+            oscillator.stop(this.audioContext.currentTime + duration);
+            
+        } catch (e) {
+            console.log('Sound playback failed:', e);
+        }
+    }
+    
+    playJumpSound() {
+        this.playSound(523, 0.1, 0.3); // C5 note
+        console.log('Jump sound played');
+    }
+    
+    playCoinSound() {
+        this.playSound(784, 0.15, 0.4); // G5 note
+        console.log('Coin sound played');
+    }
+    
+    playDeathSound() {
+        // Descending sound for death
+        if (!this.audioContext) return;
+        
+        try {
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            
+            // Descending frequency
+            oscillator.frequency.setValueAtTime(300, this.audioContext.currentTime);
+            oscillator.frequency.linearRampToValueAtTime(150, this.audioContext.currentTime + 0.3);
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.4, this.audioContext.currentTime + 0.01);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.3);
+            
+            oscillator.start(this.audioContext.currentTime);
+            oscillator.stop(this.audioContext.currentTime + 0.3);
+            
+            console.log('Death sound played');
+        } catch (e) {
+            console.log('Death sound failed:', e);
+        }
     }
     
     init() {
@@ -79,6 +157,7 @@ class Game {
         // Keyboard controls
         document.addEventListener('keydown', (event) => {
             this.keys[event.code] = true;
+            this.resumeAudio(); // Enable audio on first interaction
         });
         
         document.addEventListener('keyup', (event) => {
@@ -96,6 +175,7 @@ class Game {
                 e.preventDefault();
                 this.touchControls[key] = true;
                 button.classList.add('active');
+                this.resumeAudio(); // Enable audio on first interaction
             });
             
             // Touch end
@@ -110,6 +190,7 @@ class Game {
                 e.preventDefault();
                 this.touchControls[key] = true;
                 button.classList.add('active');
+                this.resumeAudio(); // Enable audio on first interaction
             });
             
             button.addEventListener('mouseup', (e) => {
@@ -121,6 +202,14 @@ class Game {
         
         // Prevent context menu on long press
         document.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+    
+    resumeAudio() {
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+            this.audioContext.resume().then(() => {
+                console.log('Audio context resumed');
+            });
+        }
     }
     
     isKeyPressed(key) {
@@ -202,8 +291,8 @@ class Game {
     }
     
     loadLevel(levelNum) {
-        // Clear existing level
-        this.platforms.forEach(platform => this.scene.remove(platform));
+        // Clear existing level - FIX: properly remove platform meshes
+        this.platforms.forEach(platform => this.scene.remove(platform.mesh));
         this.coins.forEach(coin => this.scene.remove(coin));
         
         this.platforms = [];
@@ -393,6 +482,7 @@ class Game {
             player.coyoteTimer = 0;
             player.jumpBufferTimer = 0.1;
             console.log('Jump!');
+            this.playJumpSound();
         }
         
         // Apply friction
@@ -429,6 +519,7 @@ class Game {
                 this.resetPlayer();
             }
             this.updateUI();
+            this.playDeathSound();
         }
     }
     
@@ -475,6 +566,7 @@ class Game {
                 this.score += 100;
                 console.log(`Coin collected! Score: ${this.score}`);
                 this.updateUI();
+                this.playCoinSound();
             }
         }
         
