@@ -229,11 +229,15 @@ class Player:
         self.was_on_ground = False
         # Visual effects
         self.squash = 1.0
+        # Jump buffering to prevent rapid jumps
+        self.jump_buffer_time = 0.2
+        self.jump_buffer_timer = 0
         
     def reset(self):
         self.x, self.y, self.z = 0.0, 1.0, 0.0
         self.vel_x = self.vel_y = self.vel_z = 0.0
         self.on_ground = False
+        self.jump_buffer_timer = 0
         
     def update(self, platforms, dt, sound_manager, particles):
         self.was_on_ground = self.on_ground
@@ -241,6 +245,10 @@ class Player:
         # Update coyote timer
         if self.coyote_timer > 0:
             self.coyote_timer -= dt
+            
+        # Update jump buffer timer
+        if self.jump_buffer_timer > 0:
+            self.jump_buffer_timer -= dt
             
         # Apply gravity
         if not self.on_ground:
@@ -310,10 +318,12 @@ class Player:
         self.vel_z += direction[1] * self.acceleration
         
     def jump(self, sound_manager, particles):
-        if self.on_ground or self.coyote_timer > 0:
+        # Only jump if buffer timer has expired (prevents rapid jumping when holding space)
+        if self.jump_buffer_timer <= 0 and (self.on_ground or self.coyote_timer > 0):
             self.vel_y = self.jump_velocity
             self.on_ground = False
             self.coyote_timer = 0
+            self.jump_buffer_timer = self.jump_buffer_time  # Reset buffer timer
             sound_manager.play_jump()
             particles.emit(self.x, self.y - self.size, self.z, (0.8, 0.8, 0.8), 4)
             
@@ -335,8 +345,8 @@ class Game:
         self.particles = ParticleSystem()
         self.save_system = SaveSystem()
         
-        # Game state
-        self.game_state = "menu"  # menu, playing, paused, game_over, level_complete
+        # Game state - simplified, no menu
+        self.game_state = "playing"  # playing, paused, game_over, level_complete
         self.score = 0
         self.lives = 3
         self.level = 1
@@ -354,8 +364,8 @@ class Game:
         self.coin_rotation = 0
         
         print("Enhanced 3D Platformer")
-        print("Menu: SPACE - Start, ESC - Quit")
         print("Game: WASD - Move, SPACE - Jump, ESC - Pause, R - Restart")
+        print("Game Started! Use WASD to move, SPACE to jump")
         
     def load_level(self, level_num):
         self.level = level_num
@@ -404,25 +414,19 @@ class Game:
                 return False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    if self.game_state == "menu":
-                        return False
-                    elif self.game_state == "playing":
+                    if self.game_state == "playing":
                         self.game_state = "paused"
                     elif self.game_state == "paused":
                         self.game_state = "playing"
+                elif event.key == pygame.K_r and self.game_state == "playing":
+                    self.restart_level()
                 elif event.key == pygame.K_SPACE:
-                    if self.game_state == "menu":
-                        self.start_game()
-                    elif self.game_state == "playing":
-                        self.player.jump(self.sound_manager, self.particles)
-                    elif self.game_state == "game_over":
+                    if self.game_state == "game_over":
                         self.restart_game()
                     elif self.game_state == "level_complete":
                         self.next_level()
-                elif event.key == pygame.K_r and self.game_state == "playing":
-                    self.restart_level()
         
-        # Movement
+        # Movement and jump - all handled with continuous key checking
         if self.game_state == "playing":
             keys = pygame.key.get_pressed()
             move_dir = [0, 0]
@@ -435,6 +439,10 @@ class Game:
                 move_dir[0] -= 1
             if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
                 move_dir[0] += 1
+            
+            # Handle jump with continuous key checking
+            if keys[pygame.K_SPACE]:
+                self.player.jump(self.sound_manager, self.particles)
             
             if move_dir[0] != 0 or move_dir[1] != 0:
                 length = math.sqrt(move_dir[0]**2 + move_dir[1]**2)
@@ -499,9 +507,7 @@ class Game:
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glLoadIdentity()
         
-        if self.game_state == "menu":
-            self.render_menu()
-        elif self.game_state in ["playing", "paused"]:
+        if self.game_state in ["playing", "paused"]:
             self.render_game()
             if self.game_state == "paused":
                 self.render_pause()
@@ -591,87 +597,6 @@ class Game:
         glEnd()
         
         # Restore 3D
-        glEnable(GL_DEPTH_TEST)
-        glEnable(GL_LIGHTING)
-        glPopMatrix()
-        glMatrixMode(GL_PROJECTION)
-        glPopMatrix()
-        glMatrixMode(GL_MODELVIEW)
-    
-    def render_menu(self):
-        # Simple menu - fix the rendering issue
-        glMatrixMode(GL_PROJECTION)
-        glPushMatrix()
-        glLoadIdentity()
-        glOrtho(0, display_width, 0, display_height, -1, 1)
-        glMatrixMode(GL_MODELVIEW)
-        glPushMatrix()
-        glLoadIdentity()
-        
-        glDisable(GL_DEPTH_TEST)
-        glDisable(GL_LIGHTING)
-        
-        # Background
-        glColor3f(0.2, 0.2, 0.4)
-        glBegin(GL_QUADS)
-        glVertex2f(0, 0)
-        glVertex2f(display_width, 0)
-        glVertex2f(display_width, display_height)
-        glVertex2f(0, display_height)
-        glEnd()
-        
-        # Title placeholder (white rectangles)
-        glColor3f(1, 1, 1)
-        for i in range(12):
-            x = display_width//2 - 120 + i * 20
-            glBegin(GL_QUADS)
-            glVertex2f(x, display_height - 150)
-            glVertex2f(x + 15, display_height - 150)
-            glVertex2f(x + 15, display_height - 120)
-            glVertex2f(x, display_height - 120)
-            glEnd()
-        
-        # High score bar (yellow)
-        glColor3f(1, 1, 0)
-        high_score_width = min(300, self.save_system.data["high_score"] // 20)
-        if high_score_width > 0:
-            glBegin(GL_QUADS)
-            glVertex2f(display_width//2 - 150, display_height//2 + 50)
-            glVertex2f(display_width//2 - 150 + high_score_width, display_height//2 + 50)
-            glVertex2f(display_width//2 - 150 + high_score_width, display_height//2 + 70)
-            glVertex2f(display_width//2 - 150, display_height//2 + 70)
-            glEnd()
-        
-        # Start button (green) - make it more visible
-        glColor3f(0, 1, 0)
-        glBegin(GL_QUADS)
-        glVertex2f(display_width//2 - 80, display_height//2 - 30)
-        glVertex2f(display_width//2 + 80, display_height//2 - 30)
-        glVertex2f(display_width//2 + 80, display_height//2)
-        glVertex2f(display_width//2 - 80, display_height//2)
-        glEnd()
-        
-        # Instructions (white text blocks)
-        glColor3f(0.8, 0.8, 0.8)
-        instructions = [
-            "SPACE TO START",
-            "ESC TO QUIT",
-            "COLLECT ALL COINS",
-            "WASD TO MOVE"
-        ]
-        
-        for line_idx, instruction in enumerate(instructions):
-            y = 200 - line_idx * 30
-            for char_idx in range(len(instruction)):
-                if instruction[char_idx] != ' ':
-                    x = display_width//2 - len(instruction) * 4 + char_idx * 8
-                    glBegin(GL_QUADS)
-                    glVertex2f(x, y)
-                    glVertex2f(x + 6, y)
-                    glVertex2f(x + 6, y + 12)
-                    glVertex2f(x, y + 12)
-                    glEnd()
-        
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_LIGHTING)
         glPopMatrix()
@@ -840,7 +765,7 @@ class Game:
         glPopMatrix()
         glMatrixMode(GL_MODELVIEW)
     
-    def start_game(self):
+    def restart_game(self):
         self.game_state = "playing"
         self.score = 0
         self.lives = 3
@@ -851,9 +776,6 @@ class Game:
         print(f"Platforms: {len(self.platforms)}")
         print(f"Coins: {len(self.coins)}")
         print(f"Player position: {self.player.x}, {self.player.y}, {self.player.z}")
-    
-    def restart_game(self):
-        self.start_game()
     
     def restart_level(self):
         self.load_level(self.level)
@@ -867,7 +789,7 @@ class Game:
             print(f"Starting Level {self.level}")
         else:
             print("Congratulations! You completed all levels!")
-            self.game_state = "menu"
+            self.game_state = "playing"
             self.save_system.update_high_score(self.score)
     
     def run(self):
