@@ -20,6 +20,16 @@ class Game {
         // Input
         this.keys = {};
         this.touchControls = {};
+        this.thumbstick = {
+            active: false,
+            centerX: 0,
+            centerY: 0,
+            currentX: 0,
+            currentY: 0,
+            moveX: 0,
+            moveY: 0,
+            maxDistance: 35 // Maximum distance from center
+        };
         
         // Game objects
         this.player = null;
@@ -239,44 +249,122 @@ class Game {
             this.keys[event.code] = false;
         });
         
-        // Touch controls
-        const touchButtons = document.querySelectorAll('.control-btn');
+        // Thumbstick controls
+        this.setupThumbstick();
         
-        touchButtons.forEach(button => {
-            const key = button.dataset.key;
-            
-            // Touch start
-            button.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                this.touchControls[key] = true;
-                button.classList.add('active');
-                this.resumeAudio(); // Enable audio on first interaction
-            });
-            
-            // Touch end
-            button.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                this.touchControls[key] = false;
-                button.classList.remove('active');
-            });
-            
-            // Mouse events for desktop testing
-            button.addEventListener('mousedown', (e) => {
-                e.preventDefault();
-                this.touchControls[key] = true;
-                button.classList.add('active');
-                this.resumeAudio(); // Enable audio on first interaction
-            });
-            
-            button.addEventListener('mouseup', (e) => {
-                e.preventDefault();
-                this.touchControls[key] = false;
-                button.classList.remove('active');
-            });
+        // Jump button
+        const jumpButton = document.getElementById('jump');
+        
+        // Touch events for jump button
+        jumpButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            this.touchControls['jump'] = true;
+            jumpButton.classList.add('active');
+            this.resumeAudio();
+        });
+        
+        jumpButton.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            this.touchControls['jump'] = false;
+            jumpButton.classList.remove('active');
+        });
+        
+        // Mouse events for desktop testing
+        jumpButton.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            this.touchControls['jump'] = true;
+            jumpButton.classList.add('active');
+            this.resumeAudio();
+        });
+        
+        jumpButton.addEventListener('mouseup', (e) => {
+            e.preventDefault();
+            this.touchControls['jump'] = false;
+            jumpButton.classList.remove('active');
         });
         
         // Prevent context menu on long press
         document.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+    
+    setupThumbstick() {
+        const thumbstick = document.getElementById('thumbstick');
+        const container = thumbstick.parentElement;
+        
+        // Get center position of thumbstick
+        const updateCenter = () => {
+            const rect = container.getBoundingClientRect();
+            this.thumbstick.centerX = rect.left + rect.width / 2;
+            this.thumbstick.centerY = rect.top + rect.height / 2;
+        };
+        
+        updateCenter();
+        window.addEventListener('resize', updateCenter);
+        
+        // Touch events
+        const handleStart = (e) => {
+            e.preventDefault();
+            this.thumbstick.active = true;
+            thumbstick.classList.add('active');
+            updateCenter();
+            
+            const touch = e.touches ? e.touches[0] : e;
+            this.updateThumbstick(touch.clientX, touch.clientY);
+            this.resumeAudio();
+        };
+        
+        const handleMove = (e) => {
+            if (!this.thumbstick.active) return;
+            e.preventDefault();
+            
+            const touch = e.touches ? e.touches[0] : e;
+            this.updateThumbstick(touch.clientX, touch.clientY);
+        };
+        
+        const handleEnd = (e) => {
+            e.preventDefault();
+            this.thumbstick.active = false;
+            thumbstick.classList.remove('active');
+            
+            // Reset to center
+            this.thumbstick.moveX = 0;
+            this.thumbstick.moveY = 0;
+            thumbstick.style.transform = 'translate(-50%, -50%)';
+        };
+        
+        // Touch events
+        thumbstick.addEventListener('touchstart', handleStart);
+        document.addEventListener('touchmove', handleMove);
+        document.addEventListener('touchend', handleEnd);
+        
+        // Mouse events for desktop testing
+        thumbstick.addEventListener('mousedown', handleStart);
+        document.addEventListener('mousemove', handleMove);
+        document.addEventListener('mouseup', handleEnd);
+    }
+    
+    updateThumbstick(clientX, clientY) {
+        const deltaX = clientX - this.thumbstick.centerX;
+        const deltaY = clientY - this.thumbstick.centerY;
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        if (distance <= this.thumbstick.maxDistance) {
+            this.thumbstick.currentX = deltaX;
+            this.thumbstick.currentY = deltaY;
+        } else {
+            // Clamp to max distance
+            const angle = Math.atan2(deltaY, deltaX);
+            this.thumbstick.currentX = Math.cos(angle) * this.thumbstick.maxDistance;
+            this.thumbstick.currentY = Math.sin(angle) * this.thumbstick.maxDistance;
+        }
+        
+        // Calculate normalized movement (-1 to 1)
+        this.thumbstick.moveX = this.thumbstick.currentX / this.thumbstick.maxDistance;
+        this.thumbstick.moveY = this.thumbstick.currentY / this.thumbstick.maxDistance;
+        
+        // Update visual position
+        const thumbstick = document.getElementById('thumbstick');
+        thumbstick.style.transform = `translate(calc(-50% + ${this.thumbstick.currentX}px), calc(-50% + ${this.thumbstick.currentY}px))`;
     }
     
     resumeAudio() {
@@ -288,16 +376,31 @@ class Game {
     }
     
     isKeyPressed(key) {
-        // Check both keyboard and touch controls
+        // Check keyboard and touch controls
         switch(key) {
-            case 'up': return this.keys['KeyW'] || this.keys['ArrowUp'] || this.touchControls['up'];
-            case 'down': return this.keys['KeyS'] || this.keys['ArrowDown'] || this.touchControls['down'];
-            case 'left': return this.keys['KeyA'] || this.keys['ArrowLeft'] || this.touchControls['left'];
-            case 'right': return this.keys['KeyD'] || this.keys['ArrowRight'] || this.touchControls['right'];
             case 'jump': return this.keys['Space'] || this.keys['ShiftLeft'] || this.keys['ShiftRight'] || this.touchControls['jump'];
             case 'restart': return this.keys['KeyR'];
             default: return false;
         }
+    }
+    
+    getMovementInput() {
+        // Combine keyboard and thumbstick input
+        let moveX = 0, moveY = 0;
+        
+        // Keyboard input
+        if (this.keys['KeyW'] || this.keys['ArrowUp']) moveY -= 1;
+        if (this.keys['KeyS'] || this.keys['ArrowDown']) moveY += 1;
+        if (this.keys['KeyA'] || this.keys['ArrowLeft']) moveX -= 1;
+        if (this.keys['KeyD'] || this.keys['ArrowRight']) moveX += 1;
+        
+        // Thumbstick input (override keyboard if active)
+        if (this.thumbstick.active) {
+            moveX = this.thumbstick.moveX;
+            moveY = this.thumbstick.moveY;
+        }
+        
+        return { x: moveX, y: moveY };
     }
     
     createPlayer() {
@@ -535,16 +638,10 @@ class Game {
         }
         
         // Handle input
-        const moveDir = new THREE.Vector2(0, 0);
-        
-        if (this.isKeyPressed('up')) moveDir.y -= 1;
-        if (this.isKeyPressed('down')) moveDir.y += 1;
-        if (this.isKeyPressed('left')) moveDir.x -= 1;
-        if (this.isKeyPressed('right')) moveDir.x += 1;
+        const moveDir = this.getMovementInput();
         
         // Normalize movement
-        if (moveDir.length() > 0) {
-            moveDir.normalize();
+        if (moveDir.x !== 0 || moveDir.y !== 0) {
             vel.x += moveDir.x * 0.006;
             vel.z += moveDir.y * 0.006;
         }
