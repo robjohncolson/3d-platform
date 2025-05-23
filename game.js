@@ -32,9 +32,9 @@ class Game {
                 moveX: 0,
                 moveY: 0,
                 maxDistance: 80, // Maximum distance from start point
-                sensitivity: 0.1, // Reduce sensitivity for better control
-                deadZone: 0.7, // Dead zone to prevent accidental movement
-                smoothing: 1 // Smoothing factor for more gradual movement
+                sensitivity: 0.3, // INCREASED sensitivity for better control
+                deadZone: 0.2, // REDUCED dead zone to prevent accidental movement
+                smoothing: 0.8 // REDUCED smoothing factor for more responsive movement
             },
             jump: {
                 active: false,
@@ -290,6 +290,12 @@ class Game {
     setupControls() {
         // Keyboard controls
         document.addEventListener('keydown', (event) => {
+            // Prevent certain keys from triggering file input accidentally
+            if (event.code === 'KeyL' && (event.ctrlKey || event.metaKey)) {
+                event.preventDefault(); // Prevent Ctrl+L from opening file dialog
+                return;
+            }
+            
             this.keys[event.code] = true;
             this.resumeAudio(); // Enable audio on first interaction
         });
@@ -386,15 +392,14 @@ class Game {
                         rawMoveY = Math.sin(angle) * scale;
                     }
                     
-                    // Apply sensitivity scaling
-                    rawMoveX *= this.touchZones.movement.sensitivity;
-                    rawMoveY *= this.touchZones.movement.sensitivity;
+                    // Apply sensitivity scaling - DIRECTLY apply the values
+                    this.touchZones.movement.moveX = rawMoveX * this.touchZones.movement.sensitivity;
+                    this.touchZones.movement.moveY = rawMoveY * this.touchZones.movement.sensitivity;
                     
-                    // Apply smoothing
-                    this.touchZones.movement.moveX = this.touchZones.movement.moveX * this.touchZones.movement.smoothing + 
-                                                     rawMoveX * (1 - this.touchZones.movement.smoothing);
-                    this.touchZones.movement.moveY = this.touchZones.movement.moveY * this.touchZones.movement.smoothing + 
-                                                     rawMoveY * (1 - this.touchZones.movement.smoothing);
+                    // Debug output for mobile
+                    if (rawDistance > 0.1) {
+                        console.log(`Touch: raw(${rawMoveX.toFixed(2)}, ${rawMoveY.toFixed(2)}) final(${this.touchZones.movement.moveX.toFixed(2)}, ${this.touchZones.movement.moveY.toFixed(2)})`);
+                    }
                     
                     this.updateTouchDebug();
                     break;
@@ -476,10 +481,10 @@ class Game {
             moveX = this.touchZones.movement.moveX;
             moveY = this.touchZones.movement.moveY;
         } else {
-            // Apply decay when not actively touching
+            // Apply decay when not actively touching - SIMPLIFIED
             if (Math.abs(this.touchZones.movement.moveX) > 0.01 || Math.abs(this.touchZones.movement.moveY) > 0.01) {
-                this.touchZones.movement.moveX *= 0.35; // Decay factor
-                this.touchZones.movement.moveY *= 0.35;
+                this.touchZones.movement.moveX *= 0.5; // Faster decay
+                this.touchZones.movement.moveY *= 0.5;
                 moveX = this.touchZones.movement.moveX;
                 moveY = this.touchZones.movement.moveY;
                 this.updateTouchDebug();

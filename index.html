@@ -238,6 +238,11 @@
             const loadBtn = document.getElementById('load-custom-btn');
             
             loadBtn.addEventListener('click', () => {
+                // Only allow file loading when not actively playing
+                if (window.game && window.game.gameState === 'playing' && window.game.player && window.game.player.velocity.y !== 0) {
+                    console.log('Cannot load level while jumping/falling');
+                    return;
+                }
                 fileInput.click();
             });
             
@@ -258,9 +263,11 @@
                         }
                     };
                     reader.readAsText(file);
-                } else {
+                } else if (file) {
                     alert('Please select a valid JSON file.');
                 }
+                // Reset the file input to allow loading the same file again
+                e.target.value = '';
             });
         });
     </script>
