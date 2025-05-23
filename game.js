@@ -53,11 +53,11 @@ class Game {
         this.audioContext = null;
         this.setupAudio();
         
-        // Gyroscope system - DISABLED for now due to compatibility issues
+        // Gyroscope system - RE-ENABLED since it works well on mobile!
         this.gyroEnabled = false;
         this.deviceOrientation = { alpha: 0, beta: 0, gamma: 0 };
         this.baseOrientation = { alpha: 0, beta: 0, gamma: 0 };
-        this.gyroSupported = false; // Disabled
+        this.gyroSupported = false;
         
         this.init();
     }
@@ -203,17 +203,13 @@ class Game {
     init() {
         this.setupLighting();
         this.setupControls();
-        // this.setupGyroscope(); // DISABLED - not working reliably
+        this.setupGyroscope(); // RE-ENABLED - works great on mobile!
         this.loadLevel(1);
         this.updateUI();
         this.animate();
         
         // Handle window resize
         window.addEventListener('resize', () => this.onWindowResize());
-        
-        // Hide gyro toggle since it's disabled
-        const gyroToggle = document.getElementById('gyro-toggle');
-        if (gyroToggle) gyroToggle.style.display = 'none';
         
         console.log('3D Platformer Game Started!');
     }
@@ -255,16 +251,52 @@ class Game {
         // Jump button
         const jumpButton = document.getElementById('jump');
         
-        // Touch events for jump button
+        // Touch events for jump button - improved for mobile
         jumpButton.addEventListener('touchstart', (e) => {
-            e.preventDefault();
+            console.log('Jump button touch start:', e.type, e.touches?.length || 'mouse');
             this.touchControls['jump'] = true;
             jumpButton.classList.add('active');
             this.resumeAudio();
-        });
+            
+            // Prevent default behaviors
+            if (e.preventDefault) e.preventDefault();
+            return false;
+        }, { passive: false });
         
         jumpButton.addEventListener('touchend', (e) => {
-            e.preventDefault();
+            this.touchControls['jump'] = false;
+            jumpButton.classList.remove('active');
+            
+            // Prevent default behaviors
+            if (e.preventDefault) e.preventDefault();
+            return false;
+        }, { passive: false });
+        
+        jumpButton.addEventListener('touchcancel', (e) => {
+            this.touchControls['jump'] = false;
+            jumpButton.classList.remove('active');
+        }, { passive: false });
+        
+        // Pointer events as fallback for jump button
+        jumpButton.addEventListener('pointerdown', (e) => {
+            console.log('Jump button pointer down:', e.type);
+            this.touchControls['jump'] = true;
+            jumpButton.classList.add('active');
+            this.resumeAudio();
+            
+            if (e.preventDefault) e.preventDefault();
+            return false;
+        });
+        
+        jumpButton.addEventListener('pointerup', (e) => {
+            this.touchControls['jump'] = false;
+            jumpButton.classList.remove('active');
+            
+            if (e.preventDefault) e.preventDefault();
+            return false;
+        });
+        
+        jumpButton.addEventListener('pointercancel', (e) => {
             this.touchControls['jump'] = false;
             jumpButton.classList.remove('active');
         });
@@ -301,9 +333,9 @@ class Game {
         updateCenter();
         window.addEventListener('resize', updateCenter);
         
-        // Touch events
+        // Touch events - improved for mobile compatibility
         const handleStart = (e) => {
-            e.preventDefault();
+            console.log('Thumbstick touch start:', e.type, e.touches?.length || 'mouse');
             this.thumbstick.active = true;
             thumbstick.classList.add('active');
             updateCenter();
@@ -311,18 +343,24 @@ class Game {
             const touch = e.touches ? e.touches[0] : e;
             this.updateThumbstick(touch.clientX, touch.clientY);
             this.resumeAudio();
+            
+            // Prevent scrolling and other default behaviors
+            if (e.preventDefault) e.preventDefault();
+            return false;
         };
         
         const handleMove = (e) => {
             if (!this.thumbstick.active) return;
-            e.preventDefault();
             
             const touch = e.touches ? e.touches[0] : e;
             this.updateThumbstick(touch.clientX, touch.clientY);
+            
+            // Prevent scrolling and other default behaviors
+            if (e.preventDefault) e.preventDefault();
+            return false;
         };
         
         const handleEnd = (e) => {
-            e.preventDefault();
             this.thumbstick.active = false;
             thumbstick.classList.remove('active');
             
@@ -330,12 +368,23 @@ class Game {
             this.thumbstick.moveX = 0;
             this.thumbstick.moveY = 0;
             thumbstick.style.transform = 'translate(-50%, -50%)';
+            
+            // Prevent default behaviors
+            if (e.preventDefault) e.preventDefault();
+            return false;
         };
         
-        // Touch events
-        thumbstick.addEventListener('touchstart', handleStart);
-        document.addEventListener('touchmove', handleMove);
-        document.addEventListener('touchend', handleEnd);
+        // Touch events with proper options for mobile
+        thumbstick.addEventListener('touchstart', handleStart, { passive: false });
+        document.addEventListener('touchmove', handleMove, { passive: false });
+        document.addEventListener('touchend', handleEnd, { passive: false });
+        document.addEventListener('touchcancel', handleEnd, { passive: false });
+        
+        // Pointer events as fallback (often more reliable on mobile)
+        thumbstick.addEventListener('pointerdown', handleStart);
+        document.addEventListener('pointermove', handleMove);
+        document.addEventListener('pointerup', handleEnd);
+        document.addEventListener('pointercancel', handleEnd);
         
         // Mouse events for desktop testing
         thumbstick.addEventListener('mousedown', handleStart);
