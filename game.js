@@ -478,8 +478,8 @@ class Game {
         } else {
             // Apply decay when not actively touching
             if (Math.abs(this.touchZones.movement.moveX) > 0.01 || Math.abs(this.touchZones.movement.moveY) > 0.01) {
-                this.touchZones.movement.moveX *= 0.85; // Decay factor
-                this.touchZones.movement.moveY *= 0.85;
+                this.touchZones.movement.moveX *= 0.35; // Decay factor
+                this.touchZones.movement.moveY *= 0.35;
                 moveX = this.touchZones.movement.moveX;
                 moveY = this.touchZones.movement.moveY;
                 this.updateTouchDebug();
