@@ -3,7 +3,11 @@ class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
         this.scene = new THREE.Scene();
-        this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 50);
+        
+        // Adjust camera settings for better mobile experience
+        const isMobile = window.innerWidth <= 768 || 'ontouchstart' in window;
+        const fov = isMobile ? 60 : 45; // Wider FOV for mobile
+        this.camera = new THREE.PerspectiveCamera(fov, window.innerWidth / window.innerHeight, 0.1, 50);
         this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
         
         this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -20,6 +24,7 @@ class Game {
         
         // Input
         this.keys = {};
+        this.jumpPressed = false; // Track jump state for proper touch handling
         
         // Invisible touch zone system
         this.touchZones = {
@@ -39,7 +44,8 @@ class Game {
             },
             jump: {
                 active: false,
-                touchId: null
+                touchId: null,
+                justPressed: false // Track if jump was just pressed this frame
             }
         };
         
@@ -53,9 +59,9 @@ class Game {
         this.gravity = 0.008;
         this.jumpVelocity = 0.22;
         
-        // Camera
+        // Camera - Increased distances for better mobile view
         this.cameraTarget = new THREE.Vector3();
-        this.cameraPosition = new THREE.Vector3(0, 3, 6);
+        this.cameraPosition = new THREE.Vector3(0, 5, 10); // Increased from (0, 3, 6)
         
         // Timing
         this.lastTime = performance.now();
@@ -350,7 +356,8 @@ class Game {
                     if (!this.touchZones.jump.active) {
                         this.touchZones.jump.active = true;
                         this.touchZones.jump.touchId = touch.identifier;
-                        console.log('Jump zone activated');
+                        this.touchZones.jump.justPressed = true; // Mark as just pressed
+                        console.log('Jump zone activated - jump triggered!');
                         this.updateTouchDebug();
                     }
                 }
@@ -438,6 +445,7 @@ class Game {
                     
                     this.touchZones.jump.active = false;
                     this.touchZones.jump.touchId = null;
+                    this.touchZones.jump.justPressed = false; // Clear just pressed flag
                     console.log('Jump zone deactivated');
                     this.updateTouchDebug();
                 }
@@ -466,7 +474,16 @@ class Game {
     isKeyPressed(key) {
         // Check keyboard and touch controls
         switch(key) {
-            case 'jump': return this.keys['Space'] || this.keys['ShiftLeft'] || this.keys['ShiftRight'] || this.touchZones.jump.active;
+            case 'jump': 
+                // Check if jump was just pressed (keyboard or touch)
+                const keyboardJump = this.keys['Space'] || this.keys['ShiftLeft'] || this.keys['ShiftRight'];
+                const touchJump = this.touchZones.jump.justPressed;
+                
+                // Track overall jump state for edge detection
+                const currentJumpState = keyboardJump || this.touchZones.jump.active;
+                const jumpJustPressed = (currentJumpState && !this.jumpPressed) || touchJump;
+                
+                return jumpJustPressed;
             case 'restart': return this.keys['KeyR'];
             default: return false;
         }
@@ -768,6 +785,10 @@ class Game {
         if (player.coyoteTimer > 0) player.coyoteTimer -= deltaTime;
         if (player.jumpBufferTimer > 0) player.jumpBufferTimer -= deltaTime;
         
+        // Track jump state for edge detection
+        const keyboardJump = this.keys['Space'] || this.keys['ShiftLeft'] || this.keys['ShiftRight'];
+        const currentJumpState = keyboardJump || this.touchZones.jump.active;
+        
         // Apply gravity when not on ground
         if (!player.onGround) {
             vel.y -= this.gravity;
@@ -792,6 +813,7 @@ class Game {
             // Set jump buffer when jump is pressed
             if (player.jumpBufferTimer <= 0) {
                 player.jumpBufferTimer = player.jumpBufferTime;
+                console.log('Jump buffer set!');
             }
         }
         
@@ -805,6 +827,10 @@ class Game {
             console.log('Jump executed!');
             this.playJumpSound();
         }
+        
+        // Update jump state tracking and clear touch jump flag
+        this.jumpPressed = currentJumpState;
+        this.touchZones.jump.justPressed = false; // Clear each frame
         
         // Apply friction - use platform-specific friction if on ground
         let currentFriction = player.friction; // Default player friction
@@ -1043,8 +1069,8 @@ class Game {
             const deltaGamma = (this.deviceOrientation.gamma - this.baseOrientation.gamma) * Math.PI / 180;
             
             // Calculate camera position using spherical coordinates around player
-            const distance = 8;
-            const height = 3;
+            const distance = 12; // Increased from 8
+            const height = 5; // Increased from 3
             
             // Use gamma for horizontal rotation (left-right tilt)
             const horizontalAngle = deltaGamma * sensitivity;
@@ -1060,11 +1086,11 @@ class Game {
             this.camera.lookAt(this.player.position);
             
         } else {
-            // Standard smooth camera follow
+            // Standard smooth camera follow - Increased distances for better mobile view
             this.cameraTarget.set(
-                this.player.position.x + 4,
-                this.player.position.y + 3,
-                this.player.position.z + 5
+                this.player.position.x + 6, // Increased from 4
+                this.player.position.y + 5, // Increased from 3
+                this.player.position.z + 8  // Increased from 5
             );
             
             this.cameraPosition.lerp(this.cameraTarget, 0.08);
@@ -1100,13 +1126,18 @@ class Game {
     }
     
     onWindowResize() {
+        // Adjust FOV based on mobile detection
+        const isMobile = window.innerWidth <= 768 || 'ontouchstart' in window;
+        const fov = isMobile ? 60 : 45;
+        this.camera.fov = fov;
+        
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(window.devicePixelRatio);
         
         // Log resize for debugging mobile issues
-        console.log(`Viewport resized: ${window.innerWidth}x${window.innerHeight}, DPR: ${window.devicePixelRatio}`);
+        console.log(`Viewport resized: ${window.innerWidth}x${window.innerHeight}, DPR: ${window.devicePixelRatio}, FOV: ${fov}`);
     }
     
     animate() {
