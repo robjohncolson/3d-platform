@@ -7,6 +7,7 @@ class Game {
         this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
         
         this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(window.devicePixelRatio); // Important for mobile
         this.renderer.setClearColor(0x87CEEB); // Sky blue
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -322,10 +323,15 @@ class Game {
                 const touch = e.changedTouches[i];
                 const x = touch.clientX;
                 const y = touch.clientY;
-                const screenWidth = window.innerWidth;
+                
+                // Use actual viewport dimensions
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+                
+                console.log(`Touch start at: ${x}, ${y} (viewport: ${viewportWidth}x${viewportHeight})`);
                 
                 // Determine which zone was touched
-                if (x < screenWidth / 2) {
+                if (x < viewportWidth / 2) {
                     // Left half - movement control
                     if (!this.touchZones.movement.active) {
                         this.touchZones.movement.active = true;
@@ -1097,6 +1103,10 @@ class Game {
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(window.devicePixelRatio);
+        
+        // Log resize for debugging mobile issues
+        console.log(`Viewport resized: ${window.innerWidth}x${window.innerHeight}, DPR: ${window.devicePixelRatio}`);
     }
     
     animate() {

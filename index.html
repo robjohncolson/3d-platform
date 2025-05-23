@@ -12,18 +12,29 @@
             font-family: Arial, sans-serif;
             overflow: hidden;
             touch-action: none;
+            /* Fix mobile viewport issues */
+            position: fixed;
+            width: 100%;
+            height: 100%;
         }
         
         #gameContainer {
             position: relative;
             width: 100vw;
             height: 100vh;
+            /* Fallback for mobile browsers that don't support dvh */
+            height: 100dvh; /* Dynamic viewport height - accounts for mobile UI */
+            min-height: -webkit-fill-available; /* Safari fallback */
         }
         
         #gameCanvas {
             display: block;
             width: 100%;
             height: 100%;
+            /* Ensure canvas fills container completely */
+            position: absolute;
+            top: 0;
+            left: 0;
         }
         
         #ui {
@@ -177,6 +188,35 @@
             font-size: 12px;
             pointer-events: none;
         }
+        
+        /* Visual touch zone indicators for mobile debugging */
+        .touch-zone-indicator {
+            position: fixed;
+            top: 0;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            pointer-events: none;
+            z-index: 50;
+            display: none; /* Hidden by default, shown via JavaScript */
+        }
+        
+        .touch-zone-movement {
+            left: 0;
+            width: 50%;
+        }
+        
+        .touch-zone-jump {
+            right: 0;
+            width: 50%;
+        }
+        
+        /* Show touch zones on mobile devices */
+        @media (max-width: 768px), (hover: none) {
+            .touch-zone-indicator {
+                display: block;
+            }
+        }
     </style>
 </head>
 <body>
@@ -209,6 +249,10 @@
         
         <!-- Temporary debug display -->
         <div id="touch-debug" class="touch-debug">Touch: Left=Movement, Right=Jump</div>
+        
+        <!-- Visual touch zone indicators for mobile -->
+        <div class="touch-zone-indicator touch-zone-movement"></div>
+        <div class="touch-zone-indicator touch-zone-jump"></div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
