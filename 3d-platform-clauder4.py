@@ -43,23 +43,91 @@ YELLOW = (0.9, 0.8, 0.1)
 WHITE = (0.9, 0.9, 0.9)
 DARK_GREEN = (0.1, 0.4, 0.1)
 
-# Simple sound system - DISABLED
+# Sound system with better compatibility
 class SoundManager:
     def __init__(self):
-        self.enabled = False
-        print("Sound system disabled")
+        try:
+            pygame.mixer.pre_init(frequency=22050, size=-16, channels=1, buffer=512)
+            pygame.mixer.init()
+            self.enabled = True
+            
+            # Pre-generate sound effects
+            self.jump_sound = self.create_beep(440, 0.1, 0.3)
+            self.coin_sound = self.create_beep(660, 0.15, 0.4) 
+            self.death_sound = self.create_descending_beep()
+            
+            print("Sound system initialized successfully")
+        except Exception as e:
+            self.enabled = False
+            print(f"Sound system disabled: {e}")
     
-    def play_beep(self, frequency, duration, volume=0.5):
-        pass
+    def create_beep(self, frequency, duration, volume=0.3):
+        if not self.enabled:
+            return None
+        try:
+            sample_rate = 22050
+            frames = int(duration * sample_rate)
+            
+            # Create simple sine wave
+            import array
+            sound_array = array.array('h')
+            
+            for i in range(frames):
+                time_point = i / sample_rate
+                # Simple sine wave with envelope
+                envelope = max(0, 1.0 - (time_point / duration))  # Fade out
+                wave_value = volume * 32767 * envelope * math.sin(frequency * 2 * math.pi * time_point)
+                sound_array.append(int(wave_value))
+            
+            sound = pygame.sndarray.make_sound(sound_array)
+            return sound
+        except:
+            return None
+    
+    def create_descending_beep(self):
+        if not self.enabled:
+            return None
+        try:
+            sample_rate = 22050
+            duration = 0.3
+            frames = int(duration * sample_rate)
+            
+            import array
+            sound_array = array.array('h')
+            
+            for i in range(frames):
+                time_point = i / sample_rate
+                # Descending frequency for death sound
+                frequency = 300 - (time_point / duration) * 150  # 300Hz to 150Hz
+                envelope = max(0, 1.0 - (time_point / duration))
+                wave_value = 0.4 * 32767 * envelope * math.sin(frequency * 2 * math.pi * time_point)
+                sound_array.append(int(wave_value))
+            
+            sound = pygame.sndarray.make_sound(sound_array)
+            return sound
+        except:
+            return None
     
     def play_jump(self):
-        pass
+        if self.enabled and self.jump_sound:
+            try:
+                self.jump_sound.play()
+            except:
+                pass
     
     def play_coin(self):
-        pass
+        if self.enabled and self.coin_sound:
+            try:
+                self.coin_sound.play()
+            except:
+                pass
     
-    def play_land(self):
-        pass
+    def play_death(self):
+        if self.enabled and self.death_sound:
+            try:
+                self.death_sound.play()
+            except:
+                pass
 
 # Particle system
 class Particle:
@@ -305,6 +373,7 @@ class Player:
             self.on_ground = False
             self.coyote_timer = 0
             self.jump_buffer_timer = self.jump_buffer_time  # Reset buffer timer
+            sound_manager.play_jump()
             particles.emit(self.x, self.y - self.size, self.z, (0.8, 0.8, 0.8), 4)
             
     def draw(self):
@@ -444,6 +513,7 @@ class Game:
             
             if took_damage:
                 self.lives -= 1
+                self.sound_manager.play_death()
                 print(f"Life lost! Lives remaining: {self.lives}")
                 if self.lives <= 0:
                     print(f"Game Over! Final Score: {self.score}")
@@ -467,6 +537,7 @@ class Game:
                 if distance < 0.4:
                     self.coins.remove(coin)
                     self.score += 100
+                    self.sound_manager.play_coin()
                     self.particles.emit(coin_x, coin_y, coin_z, YELLOW, 12)
                     print(f"Coin collected! Score: {self.score}")
             
