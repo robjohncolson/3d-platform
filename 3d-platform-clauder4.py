@@ -43,41 +43,23 @@ YELLOW = (0.9, 0.8, 0.1)
 WHITE = (0.9, 0.9, 0.9)
 DARK_GREEN = (0.1, 0.4, 0.1)
 
-# Simple sound system
+# Simple sound system - DISABLED
 class SoundManager:
     def __init__(self):
-        try:
-            pygame.mixer.init()
-            self.enabled = True
-        except:
-            self.enabled = False
-            print("Audio not available")
+        self.enabled = False
+        print("Sound system disabled")
     
-    def play_beep(self, frequency, duration):
-        if not self.enabled:
-            return
-        try:
-            # Simple beep sound
-            sample_rate = 22050
-            frames = int(duration * sample_rate)
-            arr = []
-            for i in range(frames):
-                time = i / sample_rate
-                wave = 4096 * math.sin(frequency * 2 * math.pi * time)
-                arr.append([int(wave), int(wave)])
-            sound = pygame.sndarray.make_sound(pygame.array.array('h', arr))
-            sound.play()
-        except:
-            pass
+    def play_beep(self, frequency, duration, volume=0.5):
+        pass
     
     def play_jump(self):
-        self.play_beep(440, 0.1)
+        pass
     
     def play_coin(self):
-        self.play_beep(880, 0.15)
+        pass
     
     def play_land(self):
-        self.play_beep(220, 0.08)
+        pass
 
 # Particle system
 class Particle:
@@ -221,8 +203,8 @@ class Player:
         self.acceleration = 0.006
         self.max_speed = 0.1
         self.friction = 0.88
-        self.jump_velocity = 0.16
-        self.gravity = 0.011
+        self.jump_velocity = 0.22
+        self.gravity = 0.008
         # Coyote time
         self.coyote_time = 0.12
         self.coyote_timer = 0
@@ -230,7 +212,7 @@ class Player:
         # Visual effects
         self.squash = 1.0
         # Jump buffering to prevent rapid jumps
-        self.jump_buffer_time = 0.2
+        self.jump_buffer_time = 0.1
         self.jump_buffer_timer = 0
         
     def reset(self):
@@ -303,7 +285,6 @@ class Player:
                 
                 # Landing
                 if not self.was_on_ground and self.vel_y < -0.05:
-                    sound_manager.play_land()
                     particles.emit(self.x, self.y - self.size, self.z, (0.7, 0.7, 0.7), 5)
                     self.squash = 1.3
                 
@@ -324,7 +305,6 @@ class Player:
             self.on_ground = False
             self.coyote_timer = 0
             self.jump_buffer_timer = self.jump_buffer_time  # Reset buffer timer
-            sound_manager.play_jump()
             particles.emit(self.x, self.y - self.size, self.z, (0.8, 0.8, 0.8), 4)
             
     def draw(self):
@@ -364,8 +344,8 @@ class Game:
         self.coin_rotation = 0
         
         print("Enhanced 3D Platformer")
-        print("Game: WASD - Move, SPACE - Jump, ESC - Pause, R - Restart")
-        print("Game Started! Use WASD to move, SPACE to jump")
+        print("Game: WASD - Move, SPACE/SHIFT - Jump, ESC - Pause, R - Restart")
+        print("Game Started! Use WASD to move, SPACE or SHIFT to jump")
         
     def load_level(self, level_num):
         self.level = level_num
@@ -420,28 +400,33 @@ class Game:
                         self.game_state = "playing"
                 elif event.key == pygame.K_r and self.game_state == "playing":
                     self.restart_level()
-                elif event.key == pygame.K_SPACE:
-                    if self.game_state == "game_over":
-                        self.restart_game()
-                    elif self.game_state == "level_complete":
-                        self.next_level()
         
         # Movement and jump - all handled with continuous key checking
         if self.game_state == "playing":
             keys = pygame.key.get_pressed()
             move_dir = [0, 0]
             
+            # Debug key detection
+            pressed_keys = []
             if keys[pygame.K_w] or keys[pygame.K_UP]:
                 move_dir[1] -= 1
+                pressed_keys.append("W/UP")
             if keys[pygame.K_s] or keys[pygame.K_DOWN]:
                 move_dir[1] += 1
+                pressed_keys.append("S/DOWN")
             if keys[pygame.K_a] or keys[pygame.K_LEFT]:
                 move_dir[0] -= 1
+                pressed_keys.append("A/LEFT")
             if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
                 move_dir[0] += 1
+                pressed_keys.append("D/RIGHT")
             
-            # Handle jump with continuous key checking
-            if keys[pygame.K_SPACE]:
+            # Handle jump with multiple detection methods to work around keyboard ghosting
+            space_pressed = (keys[pygame.K_SPACE] or 
+                           keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT])  # Alternative: shift also jumps
+            
+            if space_pressed:
+                pressed_keys.append("JUMP")
                 self.player.jump(self.sound_manager, self.particles)
             
             if move_dir[0] != 0 or move_dir[1] != 0:
@@ -459,10 +444,13 @@ class Game:
             
             if took_damage:
                 self.lives -= 1
+                print(f"Life lost! Lives remaining: {self.lives}")
                 if self.lives <= 0:
-                    self.game_state = "game_over"
+                    print(f"Game Over! Final Score: {self.score}")
                     if self.save_system.update_high_score(self.score):
                         print(f"New high score: {self.score}!")
+                    # Auto-restart instead of showing menu
+                    self.restart_game()
             
             # Update particles
             self.particles.update(dt)
@@ -479,16 +467,16 @@ class Game:
                 if distance < 0.4:
                     self.coins.remove(coin)
                     self.score += 100
-                    self.sound_manager.play_coin()
                     self.particles.emit(coin_x, coin_y, coin_z, YELLOW, 12)
                     print(f"Coin collected! Score: {self.score}")
             
             # Check level completion
             if len(self.coins) == 0:
-                self.game_state = "level_complete"
                 level_bonus = 500 * self.level
                 self.score += level_bonus
-                print(f"Level Complete! Bonus: {level_bonus}")
+                print(f"Level {self.level} Complete! Bonus: {level_bonus}")
+                # Auto-advance to next level
+                self.next_level()
             
             # Update camera
             self.update_camera()
@@ -511,10 +499,8 @@ class Game:
             self.render_game()
             if self.game_state == "paused":
                 self.render_pause()
-        elif self.game_state == "game_over":
-            self.render_game_over()
         elif self.game_state == "level_complete":
-            self.render_level_complete()
+            self.render_game()  # Show game while transitioning
         
         pygame.display.flip()
     
@@ -647,131 +633,13 @@ class Game:
         glPopMatrix()
         glMatrixMode(GL_MODELVIEW)
     
-    def render_game_over(self):
-        # Game over screen
-        glMatrixMode(GL_PROJECTION)
-        glPushMatrix()
-        glLoadIdentity()
-        glOrtho(0, display_width, 0, display_height, -1, 1)
-        glMatrixMode(GL_MODELVIEW)
-        glPushMatrix()
-        glLoadIdentity()
-        
-        glDisable(GL_DEPTH_TEST)
-        glDisable(GL_LIGHTING)
-        
-        # Red background
-        glColor3f(0.5, 0, 0)
-        glBegin(GL_QUADS)
-        glVertex2f(0, 0)
-        glVertex2f(display_width, 0)
-        glVertex2f(display_width, display_height)
-        glVertex2f(0, display_height)
-        glEnd()
-        
-        # Game over text
-        glColor3f(1, 1, 1)
-        for i in range(8):
-            x = display_width//2 - 80 + i * 20
-            glBegin(GL_QUADS)
-            glVertex2f(x, display_height - 200)
-            glVertex2f(x + 15, display_height - 200)
-            glVertex2f(x + 15, display_height - 170)
-            glVertex2f(x, display_height - 170)
-            glEnd()
-        
-        # Final score bar
-        glColor3f(1, 1, 0)
-        score_width = min(300, self.score // 10)
-        glBegin(GL_QUADS)
-        glVertex2f(display_width//2 - 150, display_height//2)
-        glVertex2f(display_width//2 - 150 + score_width, display_height//2)
-        glVertex2f(display_width//2 - 150 + score_width, display_height//2 + 20)
-        glVertex2f(display_width//2 - 150, display_height//2)
-        glEnd()
-        
-        # Restart button
-        glColor3f(0, 1, 0)
-        glBegin(GL_QUADS)
-        glVertex2f(display_width//2 - 80, 150)
-        glVertex2f(display_width//2 + 80, 150)
-        glVertex2f(display_width//2 + 80, 180)
-        glVertex2f(display_width//2 - 80, 150)
-        glEnd()
-        
-        glEnable(GL_DEPTH_TEST)
-        glEnable(GL_LIGHTING)
-        glPopMatrix()
-        glMatrixMode(GL_PROJECTION)
-        glPopMatrix()
-        glMatrixMode(GL_MODELVIEW)
-    
-    def render_level_complete(self):
-        # Level complete screen
-        glMatrixMode(GL_PROJECTION)
-        glPushMatrix()
-        glLoadIdentity()
-        glOrtho(0, display_width, 0, display_height, -1, 1)
-        glMatrixMode(GL_MODELVIEW)
-        glPushMatrix()
-        glLoadIdentity()
-        
-        glDisable(GL_DEPTH_TEST)
-        glDisable(GL_LIGHTING)
-        
-        # Green background
-        glColor3f(0, 0.5, 0)
-        glBegin(GL_QUADS)
-        glVertex2f(0, 0)
-        glVertex2f(display_width, 0)
-        glVertex2f(display_width, display_height)
-        glVertex2f(0, display_height)
-        glEnd()
-        
-        # Level complete text
-        glColor3f(1, 1, 1)
-        for i in range(12):
-            x = display_width//2 - 120 + i * 20
-            glBegin(GL_QUADS)
-            glVertex2f(x, display_height - 200)
-            glVertex2f(x + 15, display_height - 200)
-            glVertex2f(x + 15, display_height - 170)
-            glVertex2f(x, display_height - 170)
-            glEnd()
-        
-        # Score bar
-        glColor3f(1, 1, 0)
-        score_width = min(300, self.score // 10)
-        glBegin(GL_QUADS)
-        glVertex2f(display_width//2 - 150, display_height//2 + 50)
-        glVertex2f(display_width//2 - 150 + score_width, display_height//2 + 50)
-        glVertex2f(display_width//2 - 150 + score_width, display_height//2 + 70)
-        glVertex2f(display_width//2 - 150, display_height//2 + 50)
-        glEnd()
-        
-        # Continue button
-        glColor3f(0, 1, 0)
-        glBegin(GL_QUADS)
-        glVertex2f(display_width//2 - 80, 150)
-        glVertex2f(display_width//2 + 80, 150)
-        glVertex2f(display_width//2 + 80, 180)
-        glVertex2f(display_width//2 - 80, 150)
-        glEnd()
-        
-        glEnable(GL_DEPTH_TEST)
-        glEnable(GL_LIGHTING)
-        glPopMatrix()
-        glMatrixMode(GL_PROJECTION)
-        glPopMatrix()
-        glMatrixMode(GL_MODELVIEW)
-    
     def restart_game(self):
         self.game_state = "playing"
         self.score = 0
         self.lives = 3
         self.level = 1
         self.load_level(1)
-        print("Game Started! Use WASD to move, SPACE to jump")
+        print("Game Started! Use WASD to move, SPACE or SHIFT to jump")
         print(f"Current state: {self.game_state}")
         print(f"Platforms: {len(self.platforms)}")
         print(f"Coins: {len(self.coins)}")
