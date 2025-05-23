@@ -419,11 +419,17 @@ class Game:
         
         print("Enhanced 3D Platformer")
         print("Game: WASD - Move, SPACE/SHIFT - Jump, ESC - Pause, R - Restart")
+        print("Custom Levels: 6-0 - Load custom level from slots 1-5")
         print("Game Started! Use WASD to move, SPACE or SHIFT to jump")
         
     def load_level(self, level_num):
         self.level = level_num
         
+        # Try to load custom level first
+        if self.load_custom_level(level_num):
+            return
+        
+        # Fall back to built-in levels
         if level_num == 1:
             # Tutorial level - simple jumps
             self.platforms = [
@@ -534,6 +540,42 @@ class Game:
         
         self.player.reset()
         
+    def load_custom_level(self, level_num):
+        """Try to load a custom level from JSON file. Returns True if successful."""
+        filename = f"my_level_{level_num}.json"
+        
+        try:
+            if not os.path.exists(filename):
+                return False
+                
+            with open(filename, 'r') as f:
+                level_data = json.load(f)
+            
+            # Load platforms
+            self.platforms = level_data.get("platforms", [])
+            
+            # Load platform colors
+            platform_colors_data = level_data.get("platform_colors", [])
+            self.platform_colors = []
+            
+            for color_data in platform_colors_data:
+                # Convert from 0-1 range to RGB tuple
+                if len(color_data) >= 3:
+                    color = (color_data[0], color_data[1], color_data[2])
+                    self.platform_colors.append(color)
+                else:
+                    self.platform_colors.append(GREEN)  # Default color
+            
+            # Load coins
+            self.coins = level_data.get("coins", [])
+            
+            print(f"✓ Loaded custom level {level_num}: {len(self.platforms)} platforms, {len(self.coins)} coins")
+            return True
+            
+        except Exception as e:
+            print(f"Failed to load custom level {level_num}: {e}")
+            return False
+
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -546,6 +588,23 @@ class Game:
                         self.game_state = "playing"
                 elif event.key == pygame.K_r and self.game_state == "playing":
                     self.restart_level()
+                # Custom level loading
+                elif self.game_state == "playing":
+                    if event.key == pygame.K_6:
+                        self.load_level(1)  # Slot 1
+                        print("Loading custom level from slot 1...")
+                    elif event.key == pygame.K_7:
+                        self.load_level(2)  # Slot 2  
+                        print("Loading custom level from slot 2...")
+                    elif event.key == pygame.K_8:
+                        self.load_level(3)  # Slot 3
+                        print("Loading custom level from slot 3...")
+                    elif event.key == pygame.K_9:
+                        self.load_level(4)  # Slot 4
+                        print("Loading custom level from slot 4...")
+                    elif event.key == pygame.K_0:
+                        self.load_level(5)  # Slot 5
+                        print("Loading custom level from slot 5...")
         
         # Movement and jump - all handled with continuous key checking
         if self.game_state == "playing":
