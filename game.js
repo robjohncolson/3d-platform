@@ -252,30 +252,61 @@ class Game {
         // Jump button
         const jumpButton = document.getElementById('jump');
         
-        // Touch events for jump button - improved for mobile
+        // Track jump button touch state
+        this.jumpTouchId = null;
+        
+        // Touch events for jump button - improved for multitouch
         jumpButton.addEventListener('touchstart', (e) => {
+            // Only handle if we don't already have a touch on this button
+            if (this.jumpTouchId !== null) return;
+            
             console.log('Jump button touch start:', e.type, e.touches?.length || 'mouse');
+            this.jumpTouchId = e.touches[0].identifier;
             this.touchControls['jump'] = true;
             jumpButton.classList.add('active');
             this.resumeAudio();
             
-            // Prevent default behaviors
+            // Prevent default behaviors but don't stop propagation to avoid interfering with other touches
             if (e.preventDefault) e.preventDefault();
-            return false;
         }, { passive: false });
         
         jumpButton.addEventListener('touchend', (e) => {
-            this.touchControls['jump'] = false;
-            jumpButton.classList.remove('active');
+            // Check if our specific touch ended
+            let ourTouchEnded = false;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === this.jumpTouchId) {
+                    ourTouchEnded = true;
+                    break;
+                }
+            }
             
-            // Prevent default behaviors
-            if (e.preventDefault) e.preventDefault();
-            return false;
+            if (ourTouchEnded) {
+                this.jumpTouchId = null;
+                this.touchControls['jump'] = false;
+                jumpButton.classList.remove('active');
+                console.log('Jump button touch end - our touch ended');
+            }
+            
+            // Only prevent default if we're handling this event
+            if (ourTouchEnded && e.preventDefault) e.preventDefault();
         }, { passive: false });
         
         jumpButton.addEventListener('touchcancel', (e) => {
-            this.touchControls['jump'] = false;
-            jumpButton.classList.remove('active');
+            // Check if our specific touch was cancelled
+            let ourTouchCancelled = false;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === this.jumpTouchId) {
+                    ourTouchCancelled = true;
+                    break;
+                }
+            }
+            
+            if (ourTouchCancelled) {
+                this.jumpTouchId = null;
+                this.touchControls['jump'] = false;
+                jumpButton.classList.remove('active');
+                console.log('Jump button touch cancelled');
+            }
         }, { passive: false });
         
         // Pointer events as fallback for jump button
@@ -334,7 +365,7 @@ class Game {
         updateCenter();
         window.addEventListener('resize', updateCenter);
         
-        // Touch events - improved for multi-touch support
+        // Improved touch events with better multitouch support
         const handleStart = (e) => {
             // Only handle if thumbstick isn't already active
             if (this.thumbstick.active) return;
@@ -406,31 +437,80 @@ class Game {
                 this.thumbstick.moveX = 0;
                 this.thumbstick.moveY = 0;
                 thumbstick.style.transform = 'translate(-50%, -50%)';
-            } else {
-                console.log('Thumbstick touch end - NOT our touch, keeping active');
             }
             
-            // Prevent default behaviors only if we're handling this event
+            // Only prevent default if we're handling this event
             if (ourTouchEnded && e.preventDefault) e.preventDefault();
-            return false;
         };
         
-        // Touch events with proper options for mobile
-        thumbstick.addEventListener('touchstart', handleStart, { passive: false });
-        document.addEventListener('touchmove', handleMove, { passive: false });
-        document.addEventListener('touchend', handleEnd, { passive: false });
-        document.addEventListener('touchcancel', handleEnd, { passive: false });
+        // Touch events - only add move/end listeners when thumbstick is active
+        thumbstick.addEventListener('touchstart', (e) => {
+            handleStart(e);
+            
+            // Add document listeners only when thumbstick becomes active
+            if (this.thumbstick.active) {
+                document.addEventListener('touchmove', this.thumbstickMoveHandler, { passive: false });
+                document.addEventListener('touchend', this.thumbstickEndHandler, { passive: false });
+                document.addEventListener('touchcancel', this.thumbstickEndHandler, { passive: false });
+            }
+        }, { passive: false });
         
-        // Pointer events as fallback (often more reliable on mobile)
-        thumbstick.addEventListener('pointerdown', handleStart);
-        document.addEventListener('pointermove', handleMove);
-        document.addEventListener('pointerup', handleEnd);
-        document.addEventListener('pointercancel', handleEnd);
+        // Store handlers so we can remove them
+        this.thumbstickMoveHandler = handleMove;
+        this.thumbstickEndHandler = (e) => {
+            handleEnd(e);
+            
+            // Remove document listeners when thumbstick becomes inactive
+            if (!this.thumbstick.active) {
+                document.removeEventListener('touchmove', this.thumbstickMoveHandler);
+                document.removeEventListener('touchend', this.thumbstickEndHandler);
+                document.removeEventListener('touchcancel', this.thumbstickEndHandler);
+            }
+        };
+        
+        // Pointer events as fallback (often more reliable on some devices)
+        thumbstick.addEventListener('pointerdown', (e) => {
+            handleStart(e);
+            
+            if (this.thumbstick.active) {
+                document.addEventListener('pointermove', this.thumbstickPointerMoveHandler);
+                document.addEventListener('pointerup', this.thumbstickPointerEndHandler);
+                document.addEventListener('pointercancel', this.thumbstickPointerEndHandler);
+            }
+        });
+        
+        // Store pointer handlers
+        this.thumbstickPointerMoveHandler = handleMove;
+        this.thumbstickPointerEndHandler = (e) => {
+            handleEnd(e);
+            
+            if (!this.thumbstick.active) {
+                document.removeEventListener('pointermove', this.thumbstickPointerMoveHandler);
+                document.removeEventListener('pointerup', this.thumbstickPointerEndHandler);
+                document.removeEventListener('pointercancel', this.thumbstickPointerEndHandler);
+            }
+        };
         
         // Mouse events for desktop testing
-        thumbstick.addEventListener('mousedown', handleStart);
-        document.addEventListener('mousemove', handleMove);
-        document.addEventListener('mouseup', handleEnd);
+        thumbstick.addEventListener('mousedown', (e) => {
+            handleStart(e);
+            
+            if (this.thumbstick.active) {
+                document.addEventListener('mousemove', this.thumbstickMouseMoveHandler);
+                document.addEventListener('mouseup', this.thumbstickMouseEndHandler);
+            }
+        });
+        
+        // Store mouse handlers
+        this.thumbstickMouseMoveHandler = handleMove;
+        this.thumbstickMouseEndHandler = (e) => {
+            handleEnd(e);
+            
+            if (!this.thumbstick.active) {
+                document.removeEventListener('mousemove', this.thumbstickMouseMoveHandler);
+                document.removeEventListener('mouseup', this.thumbstickMouseEndHandler);
+            }
+        };
     }
     
     updateThumbstick(clientX, clientY) {
