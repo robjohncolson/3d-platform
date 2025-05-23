@@ -43,68 +43,70 @@ YELLOW = (0.9, 0.8, 0.1)
 WHITE = (0.9, 0.9, 0.9)
 DARK_GREEN = (0.1, 0.4, 0.1)
 
-# Sound system with better compatibility
+# Simple and reliable sound system
 class SoundManager:
     def __init__(self):
         try:
-            pygame.mixer.pre_init(frequency=22050, size=-16, channels=1, buffer=512)
-            pygame.mixer.init()
+            pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=512)
             self.enabled = True
             
-            # Pre-generate sound effects
-            self.jump_sound = self.create_beep(440, 0.1, 0.3)
-            self.coin_sound = self.create_beep(660, 0.15, 0.4) 
-            self.death_sound = self.create_descending_beep()
+            # Create simple sound effects using basic sine waves
+            self.jump_sound = self.create_simple_beep(440, 0.1)
+            self.coin_sound = self.create_simple_beep(880, 0.15) 
+            self.death_sound = self.create_simple_beep(220, 0.3)
             
-            print("Sound system initialized successfully")
+            print("Sound system initialized")
         except Exception as e:
             self.enabled = False
-            print(f"Sound system disabled: {e}")
+            print(f"Sound disabled: {e}")
     
-    def create_beep(self, frequency, duration, volume=0.3):
+    def create_simple_beep(self, frequency, duration):
         if not self.enabled:
             return None
         try:
+            import numpy as np
+            
             sample_rate = 22050
             frames = int(duration * sample_rate)
             
-            # Create simple sine wave
-            import array
-            sound_array = array.array('h')
+            # Generate time array
+            t = np.linspace(0, duration, frames)
             
-            for i in range(frames):
-                time_point = i / sample_rate
-                # Simple sine wave with envelope
-                envelope = max(0, 1.0 - (time_point / duration))  # Fade out
-                wave_value = volume * 32767 * envelope * math.sin(frequency * 2 * math.pi * time_point)
-                sound_array.append(int(wave_value))
+            # Generate sine wave with fade out
+            wave = np.sin(frequency * 2 * np.pi * t)
+            fade = np.linspace(1, 0, frames)  # Fade out envelope
+            wave = wave * fade * 0.3  # Volume control
             
-            sound = pygame.sndarray.make_sound(sound_array)
+            # Convert to 16-bit integers
+            wave = (wave * 32767).astype(np.int16)
+            
+            # Make stereo
+            stereo_wave = np.zeros((frames, 2), dtype=np.int16)
+            stereo_wave[:, 0] = wave
+            stereo_wave[:, 1] = wave
+            
+            sound = pygame.sndarray.make_sound(stereo_wave)
             return sound
-        except:
-            return None
-    
-    def create_descending_beep(self):
-        if not self.enabled:
-            return None
-        try:
-            sample_rate = 22050
-            duration = 0.3
-            frames = int(duration * sample_rate)
             
-            import array
-            sound_array = array.array('h')
-            
-            for i in range(frames):
-                time_point = i / sample_rate
-                # Descending frequency for death sound
-                frequency = 300 - (time_point / duration) * 150  # 300Hz to 150Hz
-                envelope = max(0, 1.0 - (time_point / duration))
-                wave_value = 0.4 * 32767 * envelope * math.sin(frequency * 2 * math.pi * time_point)
-                sound_array.append(int(wave_value))
-            
-            sound = pygame.sndarray.make_sound(sound_array)
-            return sound
+        except ImportError:
+            # Fallback if numpy not available - create very basic sound
+            try:
+                import array
+                sample_rate = 22050
+                frames = int(duration * sample_rate)
+                
+                arr = array.array('h')
+                for i in range(frames):
+                    t = i / sample_rate
+                    fade = max(0, 1.0 - t/duration)
+                    value = int(fade * 16383 * math.sin(frequency * 2 * math.pi * t))
+                    arr.append(value)  # Left channel
+                    arr.append(value)  # Right channel
+                
+                sound = pygame.sndarray.make_sound(arr)
+                return sound
+            except:
+                return None
         except:
             return None
     
@@ -112,22 +114,25 @@ class SoundManager:
         if self.enabled and self.jump_sound:
             try:
                 self.jump_sound.play()
-            except:
-                pass
+                print("Jump sound played")
+            except Exception as e:
+                print(f"Jump sound failed: {e}")
     
     def play_coin(self):
         if self.enabled and self.coin_sound:
             try:
                 self.coin_sound.play()
-            except:
-                pass
+                print("Coin sound played")
+            except Exception as e:
+                print(f"Coin sound failed: {e}")
     
     def play_death(self):
         if self.enabled and self.death_sound:
             try:
                 self.death_sound.play()
-            except:
-                pass
+                print("Death sound played")
+            except Exception as e:
+                print(f"Death sound failed: {e}")
 
 # Particle system
 class Particle:
