@@ -37,30 +37,65 @@
             z-index: 100;
         }
         
-        #qr-code {
+        #qr-button {
             position: absolute;
             top: 10px;
             right: 10px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px;
-            border-radius: 10px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.8);
+            border: 2px solid #666;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 101;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+        
+        #qr-button:hover, #qr-button:active {
+            background: rgba(255, 255, 255, 1);
+            transform: scale(1.1);
+        }
+        
+        #qr-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+        
+        #qr-overlay .qr-content {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
             text-align: center;
-            z-index: 100;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            max-width: 90vw;
         }
         
-        #qr-code img {
-            display: block;
-            width: 100px;
-            height: 100px;
-            margin: 0 auto 5px auto;
+        #qr-overlay img {
+            width: 200px;
+            height: 200px;
+            margin: 10px 0;
         }
         
-        #qr-code .qr-text {
-            font-size: 10px;
-            color: #333;
-            font-weight: bold;
-            line-height: 1.2;
+        #qr-overlay .close-btn {
+            margin-top: 10px;
+            padding: 10px 20px;
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
         }
         
         #controls {
@@ -69,7 +104,7 @@
             left: 50%;
             transform: translateX(-50%);
             display: flex;
-            gap: 20px;
+            gap: 30px;
             z-index: 100;
         }
         
@@ -77,49 +112,54 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 10px;
+            gap: 15px;
         }
         
         .dpad {
             display: grid;
-            grid-template-columns: 60px 60px 60px;
-            grid-template-rows: 60px 60px 60px;
-            gap: 5px;
+            grid-template-columns: 70px 70px 70px;
+            grid-template-rows: 70px 70px 70px;
+            gap: 8px;
         }
         
         .control-btn {
-            width: 60px;
-            height: 60px;
-            border: 2px solid #fff;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.2);
+            width: 70px;
+            height: 70px;
+            border: 3px solid #fff;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.3);
             color: white;
             font-weight: bold;
-            font-size: 18px;
+            font-size: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
             user-select: none;
             touch-action: manipulation;
             cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            transition: all 0.2s ease;
         }
         
         .control-btn:active, .control-btn.active {
-            background: rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.7);
             transform: scale(0.95);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.4);
         }
         
         .jump-btn {
-            width: 80px;
-            height: 80px;
+            width: 90px;
+            height: 90px;
             border-radius: 50%;
-            background: rgba(255, 100, 100, 0.3);
-            border: 3px solid #ff6464;
-            font-size: 20px;
+            background: rgba(255, 100, 100, 0.4);
+            border: 4px solid #ff6464;
+            font-size: 22px;
+            box-shadow: 0 4px 12px rgba(255, 100, 100, 0.4);
         }
         
         .jump-btn:active, .jump-btn.active {
-            background: rgba(255, 100, 100, 0.6);
+            background: rgba(255, 100, 100, 0.8);
+            box-shadow: 0 2px 6px rgba(255, 100, 100, 0.6);
         }
         
         @media (max-width: 768px) {
@@ -127,34 +167,38 @@
                 font-size: 14px;
             }
             
-            #qr-code {
-                padding: 5px;
-            }
-            
-            #qr-code img {
-                width: 60px;
-                height: 60px;
-            }
-            
-            #qr-code .qr-text {
-                font-size: 8px;
-            }
-            
-            .control-btn {
-                width: 50px;
-                height: 50px;
+            #qr-button {
+                width: 35px;
+                height: 35px;
                 font-size: 16px;
             }
             
+            #qr-overlay img {
+                width: 150px;
+                height: 150px;
+            }
+            
+            #controls {
+                bottom: 15px;
+                gap: 25px;
+            }
+            
+            .control-btn {
+                width: 65px;
+                height: 65px;
+                font-size: 18px;
+            }
+            
             .dpad {
-                grid-template-columns: 50px 50px 50px;
-                grid-template-rows: 50px 50px 50px;
+                grid-template-columns: 65px 65px 65px;
+                grid-template-rows: 65px 65px 65px;
+                gap: 6px;
             }
             
             .jump-btn {
-                width: 70px;
-                height: 70px;
-                font-size: 18px;
+                width: 80px;
+                height: 80px;
+                font-size: 20px;
             }
         }
         
@@ -198,9 +242,16 @@
             <div id="gyro-toggle" class="gyro-btn">🎯 Gyro: OFF</div>
         </div>
         
-        <div id="qr-code">
-            <img src="qr-code.png" alt="QR Code">
-            <div class="qr-text">Scan to play on mobile</div>
+        <div id="qr-button" title="Share game">📱</div>
+        
+        <div id="qr-overlay">
+            <div class="qr-content">
+                <h3>Play on Mobile</h3>
+                <img src="qr-code.png" alt="QR Code">
+                <p>Scan this QR code with your phone to play!</p>
+                <p><strong>https://robjohncolson.github.io/3d-platform/</strong></p>
+                <button class="close-btn" onclick="closeQRCode()">Close</button>
+            </div>
         </div>
         
         <div id="controls">
@@ -225,6 +276,28 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // QR Code functionality
+        function showQRCode() {
+            document.getElementById('qr-overlay').style.display = 'flex';
+        }
+        
+        function closeQRCode() {
+            document.getElementById('qr-overlay').style.display = 'none';
+        }
+        
+        // Setup QR button click handler
+        window.addEventListener('load', () => {
+            document.getElementById('qr-button').addEventListener('click', showQRCode);
+            
+            // Close on overlay click (outside content)
+            document.getElementById('qr-overlay').addEventListener('click', (e) => {
+                if (e.target.id === 'qr-overlay') {
+                    closeQRCode();
+                }
+            });
+        });
+    </script>
     <script src="game.js"></script>
 </body>
 </html> 

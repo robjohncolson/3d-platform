@@ -43,11 +43,11 @@ class Game {
         this.audioContext = null;
         this.setupAudio();
         
-        // Gyroscope system
+        // Gyroscope system - DISABLED for now due to compatibility issues
         this.gyroEnabled = false;
         this.deviceOrientation = { alpha: 0, beta: 0, gamma: 0 };
         this.baseOrientation = { alpha: 0, beta: 0, gamma: 0 };
-        this.gyroSupported = false;
+        this.gyroSupported = false; // Disabled
         
         this.init();
     }
@@ -193,13 +193,17 @@ class Game {
     init() {
         this.setupLighting();
         this.setupControls();
-        this.setupGyroscope();
+        // this.setupGyroscope(); // DISABLED - not working reliably
         this.loadLevel(1);
         this.updateUI();
         this.animate();
         
         // Handle window resize
         window.addEventListener('resize', () => this.onWindowResize());
+        
+        // Hide gyro toggle since it's disabled
+        const gyroToggle = document.getElementById('gyro-toggle');
+        if (gyroToggle) gyroToggle.style.display = 'none';
         
         console.log('3D Platformer Game Started!');
     }
