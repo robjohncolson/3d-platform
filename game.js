@@ -22,6 +22,7 @@ class Game {
         this.touchControls = {};
         this.thumbstick = {
             active: false,
+            touchId: null, // Track which touch is controlling the thumbstick
             centerX: 0,
             centerY: 0,
             currentX: 0,
@@ -333,10 +334,14 @@ class Game {
         updateCenter();
         window.addEventListener('resize', updateCenter);
         
-        // Touch events - improved for mobile compatibility
+        // Touch events - improved for multi-touch support
         const handleStart = (e) => {
+            // Only handle if thumbstick isn't already active
+            if (this.thumbstick.active) return;
+            
             console.log('Thumbstick touch start:', e.type, e.touches?.length || 'mouse');
             this.thumbstick.active = true;
+            this.thumbstick.touchId = e.touches ? e.touches[0].identifier : 'mouse';
             thumbstick.classList.add('active');
             updateCenter();
             
@@ -352,8 +357,23 @@ class Game {
         const handleMove = (e) => {
             if (!this.thumbstick.active) return;
             
-            const touch = e.touches ? e.touches[0] : e;
-            this.updateThumbstick(touch.clientX, touch.clientY);
+            // Find the correct touch by identifier
+            let touch = null;
+            if (e.touches && this.thumbstick.touchId !== 'mouse') {
+                for (let i = 0; i < e.touches.length; i++) {
+                    if (e.touches[i].identifier === this.thumbstick.touchId) {
+                        touch = e.touches[i];
+                        break;
+                    }
+                }
+                if (!touch) return; // Our touch is not in the current touches
+            } else if (!e.touches) {
+                touch = e; // Mouse event
+            }
+            
+            if (touch) {
+                this.updateThumbstick(touch.clientX, touch.clientY);
+            }
             
             // Prevent scrolling and other default behaviors
             if (e.preventDefault) e.preventDefault();
@@ -361,16 +381,37 @@ class Game {
         };
         
         const handleEnd = (e) => {
-            this.thumbstick.active = false;
-            thumbstick.classList.remove('active');
+            if (!this.thumbstick.active) return;
             
-            // Reset to center
-            this.thumbstick.moveX = 0;
-            this.thumbstick.moveY = 0;
-            thumbstick.style.transform = 'translate(-50%, -50%)';
+            // Check if our specific touch ended
+            let ourTouchEnded = false;
+            if (e.changedTouches && this.thumbstick.touchId !== 'mouse') {
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === this.thumbstick.touchId) {
+                        ourTouchEnded = true;
+                        break;
+                    }
+                }
+            } else if (!e.changedTouches) {
+                ourTouchEnded = true; // Mouse event
+            }
             
-            // Prevent default behaviors
-            if (e.preventDefault) e.preventDefault();
+            if (ourTouchEnded) {
+                console.log('Thumbstick touch end - our touch ended');
+                this.thumbstick.active = false;
+                this.thumbstick.touchId = null;
+                thumbstick.classList.remove('active');
+                
+                // Reset to center
+                this.thumbstick.moveX = 0;
+                this.thumbstick.moveY = 0;
+                thumbstick.style.transform = 'translate(-50%, -50%)';
+            } else {
+                console.log('Thumbstick touch end - NOT our touch, keeping active');
+            }
+            
+            // Prevent default behaviors only if we're handling this event
+            if (ourTouchEnded && e.preventDefault) e.preventDefault();
             return false;
         };
         
