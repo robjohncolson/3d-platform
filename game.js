@@ -1138,9 +1138,66 @@ class Game {
             debugElement.textContent = status;
         }
     }
+    
+    loadCustomLevel(levelData) {
+        console.log('Loading custom level...', levelData);
+        
+        // Clear existing level
+        this.platforms.forEach(platform => this.scene.remove(platform.mesh));
+        this.coins.forEach(coin => this.scene.remove(coin));
+        
+        this.platforms = [];
+        this.coins = [];
+        
+        // Reset player
+        this.resetPlayer();
+        
+        try {
+            // Load platforms
+            const platforms = levelData.platforms || [];
+            const platformColors = levelData.platform_colors || [];
+            
+            platforms.forEach((platformData, index) => {
+                const [x, y, z, width, height, depth] = platformData;
+                
+                // Convert color from editor format (0-1 range) to Three.js format (hex)
+                let color = 0x22aa22; // Default green
+                if (index < platformColors.length) {
+                    const [r, g, b] = platformColors[index];
+                    color = (Math.floor(r * 255) << 16) | (Math.floor(g * 255) << 8) | Math.floor(b * 255);
+                }
+                
+                // Create platform with default friction
+                const platform = this.createPlatform(x, y, z, width, height, depth, color, 0.88);
+                this.platforms.push({ 
+                    mesh: platform, 
+                    x, y, z, 
+                    width, height, depth,
+                    friction: 0.88
+                });
+            });
+            
+            // Load coins
+            const coins = levelData.coins || [];
+            coins.forEach(([x, y, z]) => {
+                const coin = this.createCoin(x, y, z);
+                this.coins.push(coin);
+            });
+            
+            // Update level indicator to show custom
+            this.level = 'Custom';
+            this.updateUI();
+            
+            console.log(`✓ Custom level loaded: ${this.platforms.length} platforms, ${this.coins.length} coins`);
+            
+        } catch (error) {
+            console.error('Error processing custom level data:', error);
+            throw error;
+        }
+    }
 }
 
 // Start the game when page loads
 window.addEventListener('load', () => {
-    new Game();
+    window.game = new Game(); // Store globally for custom level loading
 }); 

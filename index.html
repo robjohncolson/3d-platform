@@ -145,6 +145,24 @@
             border-color: #64ff64;
         }
         
+        .custom-level-btn {
+            padding: 5px 10px;
+            background: rgba(255, 150, 50, 0.3);
+            border: 2px solid #ff9632;
+            border-radius: 15px;
+            color: white;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.3s ease;
+            font-size: 12px;
+            font-family: Arial, sans-serif;
+        }
+        
+        .custom-level-btn:hover, .custom-level-btn:active {
+            background: rgba(255, 150, 50, 0.6);
+            transform: scale(1.05);
+        }
+        
         /* Temporary visual debugging for touch zones */
         .touch-debug {
             position: fixed;
@@ -171,6 +189,10 @@
             <div>Lives: <span id="lives">3</span></div>
             <div>Coins: <span id="coins">0</span></div>
             <div id="gyro-toggle" class="gyro-btn">🎯 Gyro: OFF</div>
+            <div style="margin-top: 10px;">
+                <input type="file" id="level-file-input" accept=".json" style="display: none;">
+                <button id="load-custom-btn" class="custom-level-btn">📁 Load Custom Level</button>
+            </div>
         </div>
         
         <div id="qr-button" title="Share game">📱</div>
@@ -208,6 +230,36 @@
             document.getElementById('qr-overlay').addEventListener('click', (e) => {
                 if (e.target.id === 'qr-overlay') {
                     closeQRCode();
+                }
+            });
+            
+            // Setup custom level loading
+            const fileInput = document.getElementById('level-file-input');
+            const loadBtn = document.getElementById('load-custom-btn');
+            
+            loadBtn.addEventListener('click', () => {
+                fileInput.click();
+            });
+            
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file && file.type === 'application/json') {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const levelData = JSON.parse(event.target.result);
+                            if (window.game) {
+                                window.game.loadCustomLevel(levelData);
+                                console.log('Custom level loaded successfully!');
+                            }
+                        } catch (error) {
+                            console.error('Error loading custom level:', error);
+                            alert('Error loading level file. Please check the file format.');
+                        }
+                    };
+                    reader.readAsText(file);
+                } else {
+                    alert('Please select a valid JSON file.');
                 }
             });
         });
