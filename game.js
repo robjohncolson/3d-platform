@@ -33,8 +33,8 @@ class Game {
                 moveY: 0,
                 maxDistance: 80, // Maximum distance from start point
                 sensitivity: 0.1, // Reduce sensitivity for better control
-                deadZone: 0.5, // Dead zone to prevent accidental movement
-                smoothing: 0.8 // Smoothing factor for more gradual movement
+                deadZone: 0.7, Dead zone to prevent accidental movement
+                smoothing: 1// Smoothing factor for more gradual movement
             },
             jump: {
                 active: false,
@@ -550,7 +550,23 @@ class Game {
         const material = new THREE.MeshLambertMaterial({ color: 0xffdd00 });
         const coin = new THREE.Mesh(geometry, material);
         
-        coin.position.set(x, y, z);
+        // Ensure coin is positioned above any platforms at this location
+        let safeY = y;
+        for (let platform of this.platforms) {
+            const px = platform.x, py = platform.y, pz = platform.z;
+            const pw = platform.width, ph = platform.height, pd = platform.depth;
+            
+            // Check if coin would be inside or too close to this platform
+            if (Math.abs(x - px) < pw/2 + 0.2 && 
+                Math.abs(z - pz) < pd/2 + 0.2 && 
+                y >= py - ph/2 && y <= py + ph/2 + 0.5) {
+                
+                // Position coin safely above this platform
+                safeY = Math.max(safeY, py + ph/2 + 0.4);
+            }
+        }
+        
+        coin.position.set(x, safeY, z);
         coin.castShadow = true;
         
         this.scene.add(coin);
@@ -903,10 +919,18 @@ class Game {
     updateCoins(deltaTime) {
         this.coinRotation += 120 * deltaTime * Math.PI / 180;
         
-        // Rotate coins
+        // Rotate coins and apply floating animation
         this.coins.forEach(coin => {
             coin.rotation.y = this.coinRotation;
-            coin.position.y += Math.sin(coin.rotation.y * 0.1) * 0.001;
+            
+            // Use the original Y position as base + floating offset
+            if (!coin.originalY) {
+                coin.originalY = coin.position.y; // Store original position on first update
+            }
+            
+            // Apply floating animation from the original position
+            const floatOffset = Math.sin(this.coinRotation * 0.5) * 0.1;
+            coin.position.y = coin.originalY + floatOffset;
         });
         
         // Check coin collection
