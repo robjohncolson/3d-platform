@@ -600,7 +600,7 @@ class Game:
         self.player.draw()
         
         # Draw shadow
-        draw_shadow(self.player.x, self.player.y, self.player.z)
+        draw_shadow(self.player.x, self.player.y, self.player.z, self.platforms, self.player.on_ground)
         
         # Draw particles
         self.particles.draw()
@@ -756,14 +756,38 @@ class Game:
         
         pygame.quit()
 
-def draw_shadow(player_x, player_y, player_z, shadow_size=0.3):
-    # Calculate shadow opacity based on height (higher = more transparent)
-    height = max(0, player_y - 0.5)  # Assume ground is around y=0.5
+def draw_shadow(player_x, player_y, player_z, platforms, player_on_ground, shadow_size=0.3):
+    # Only draw shadow when player is in the air
+    if player_on_ground:
+        return
+    
+    # Find the highest platform below the player
+    ground_y = -10  # Default very low ground
+    for platform in platforms:
+        px, py, pz, pw, ph, pd = platform[:6]
+        
+        # Check if player is above this platform (within x,z bounds)
+        if (abs(player_x - px) < pw/2 + 0.5 and 
+            abs(player_z - pz) < pd/2 + 0.5 and 
+            py + ph/2 < player_y):  # Platform is below player
+            
+            # This platform is below the player, update ground level
+            ground_y = max(ground_y, py + ph/2)
+    
+    # Calculate shadow opacity based on height above ground
+    height_above_ground = player_y - ground_y
+    if height_above_ground < 0.1:  # Too close to ground
+        return
+        
     max_height = 3.0
-    opacity = max(0.2, 1.0 - (height / max_height))
+    opacity = max(0.3, min(0.8, 1.0 - (height_above_ground / max_height)))
+    
+    # Calculate shadow size based on height (higher = larger shadow)
+    shadow_scale = min(1.5, 1.0 + height_above_ground * 0.2)
+    actual_shadow_size = shadow_size * shadow_scale
     
     glPushMatrix()
-    glTranslatef(player_x, 0.51, player_z)  # Slightly above ground to avoid z-fighting
+    glTranslatef(player_x, ground_y + 0.01, player_z)  # Slightly above the ground/platform
     
     # Disable lighting for shadow
     glDisable(GL_LIGHTING)
@@ -779,8 +803,8 @@ def draw_shadow(player_x, player_y, player_z, shadow_size=0.3):
     segments = 12
     for i in range(segments + 1):
         angle = (i / segments) * 2 * math.pi
-        x = shadow_size * math.cos(angle)
-        z = shadow_size * math.sin(angle)
+        x = actual_shadow_size * math.cos(angle)
+        z = actual_shadow_size * math.sin(angle)
         glVertex3f(x, 0, z)
     glEnd()
     
