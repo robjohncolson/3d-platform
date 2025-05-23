@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>3D Platformer</title>
     <style>
         body {
@@ -35,6 +35,8 @@
             font-weight: bold;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
             z-index: 100;
+            padding-top: max(10px, env(safe-area-inset-top));
+            padding-left: max(10px, env(safe-area-inset-left));
         }
         
         #qr-button {
@@ -53,6 +55,8 @@
             z-index: 101;
             font-size: 18px;
             transition: all 0.3s ease;
+            margin-top: max(10px, env(safe-area-inset-top));
+            margin-right: max(10px, env(safe-area-inset-right));
         }
         
         #qr-button:hover, #qr-button:active {
@@ -106,6 +110,9 @@
             height: 200px;
             z-index: 100;
             pointer-events: none;
+            padding-bottom: max(20px, env(safe-area-inset-bottom));
+            padding-left: max(20px, env(safe-area-inset-left));
+            padding-right: max(20px, env(safe-area-inset-right));
         }
         
         .control-group {
@@ -187,17 +194,27 @@
         @media (max-width: 768px) {
             #ui {
                 font-size: 14px;
+                padding-top: max(15px, env(safe-area-inset-top));
+                padding-left: max(15px, env(safe-area-inset-left));
             }
             
             #qr-button {
                 width: 35px;
                 height: 35px;
                 font-size: 16px;
+                margin-top: max(15px, env(safe-area-inset-top));
+                margin-right: max(15px, env(safe-area-inset-right));
             }
             
             #qr-overlay img {
                 width: 150px;
                 height: 150px;
+            }
+            
+            #controls {
+                padding-bottom: max(30px, env(safe-area-inset-bottom));
+                padding-left: max(30px, env(safe-area-inset-left));
+                padding-right: max(30px, env(safe-area-inset-right));
             }
             
             .thumbstick-container {
@@ -249,6 +266,64 @@
         .gyro-btn.enabled {
             background: rgba(100, 255, 100, 0.4);
             border-color: #64ff64;
+        }
+        
+        /* Additional safe area handling for extreme cases */
+        @supports (padding: max(0px)) {
+            body {
+                /* Ensure the entire body respects safe areas */
+                padding-left: env(safe-area-inset-left);
+                padding-right: env(safe-area-inset-right);
+            }
+        }
+        
+        /* Landscape orientation adjustments */
+        @media (orientation: landscape) and (max-height: 500px) {
+            #controls {
+                /* Reduce height for landscape mode */
+                height: 140px;
+                padding-bottom: max(15px, env(safe-area-inset-bottom));
+            }
+            
+            .thumbstick-container {
+                bottom: 15px;
+                left: 15px;
+                width: 90px;
+                height: 90px;
+            }
+            
+            .thumbstick {
+                width: 90px;
+                height: 90px;
+            }
+            
+            .thumbstick-knob {
+                width: 35px;
+                height: 35px;
+            }
+            
+            .jump-container {
+                bottom: 15px;
+                right: 15px;
+            }
+            
+            .jump-btn {
+                width: 70px;
+                height: 70px;
+                font-size: 18px;
+            }
+            
+            #ui {
+                font-size: 12px;
+                padding-top: max(5px, env(safe-area-inset-top));
+            }
+            
+            #qr-button {
+                width: 30px;
+                height: 30px;
+                font-size: 14px;
+                margin-top: max(5px, env(safe-area-inset-top));
+            }
         }
     </style>
 </head>
