@@ -43,6 +43,12 @@ class Game {
         this.audioContext = null;
         this.setupAudio();
         
+        // Gyroscope system
+        this.gyroEnabled = false;
+        this.deviceOrientation = { alpha: 0, beta: 0, gamma: 0 };
+        this.baseOrientation = { alpha: 0, beta: 0, gamma: 0 };
+        this.gyroSupported = false;
+        
         this.init();
     }
     
@@ -52,6 +58,70 @@ class Game {
             console.log('Audio system initialized');
         } catch (e) {
             console.log('Audio not supported');
+        }
+    }
+    
+    setupGyroscope() {
+        // Check if device orientation is supported
+        if (window.DeviceOrientationEvent) {
+            this.gyroSupported = true;
+            
+            // Add gyroscope toggle button listener
+            const gyroToggle = document.getElementById('gyro-toggle');
+            gyroToggle.addEventListener('click', () => this.toggleGyroscope());
+            
+            // Device orientation event listener
+            window.addEventListener('deviceorientation', (event) => {
+                if (this.gyroEnabled) {
+                    this.deviceOrientation = {
+                        alpha: event.alpha || 0,  // Z axis rotation (compass)
+                        beta: event.beta || 0,    // X axis rotation (front-back tilt)
+                        gamma: event.gamma || 0   // Y axis rotation (left-right tilt)
+                    };
+                }
+            });
+            
+            console.log('Gyroscope support detected');
+        } else {
+            console.log('Gyroscope not supported on this device');
+            // Hide gyro button if not supported
+            const gyroToggle = document.getElementById('gyro-toggle');
+            if (gyroToggle) gyroToggle.style.display = 'none';
+        }
+    }
+    
+    async toggleGyroscope() {
+        if (!this.gyroSupported) return;
+        
+        const gyroToggle = document.getElementById('gyro-toggle');
+        
+        if (!this.gyroEnabled) {
+            // Request permission on iOS devices
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    if (permission !== 'granted') {
+                        console.log('Gyroscope permission denied');
+                        return;
+                    }
+                } catch (error) {
+                    console.log('Error requesting gyroscope permission:', error);
+                    return;
+                }
+            }
+            
+            // Enable gyroscope
+            this.gyroEnabled = true;
+            this.baseOrientation = { ...this.deviceOrientation };
+            gyroToggle.textContent = '🎯 Gyro: ON';
+            gyroToggle.classList.add('enabled');
+            console.log('Gyroscope enabled');
+        } else {
+            // Disable gyroscope
+            this.gyroEnabled = false;
+            gyroToggle.textContent = '🎯 Gyro: OFF';
+            gyroToggle.classList.remove('enabled');
+            console.log('Gyroscope disabled');
         }
     }
     
@@ -123,6 +193,7 @@ class Game {
     init() {
         this.setupLighting();
         this.setupControls();
+        this.setupGyroscope();
         this.loadLevel(1);
         this.updateUI();
         this.animate();
@@ -620,16 +691,44 @@ class Game {
     }
     
     updateCamera() {
-        // Smooth camera follow
-        this.cameraTarget.set(
-            this.player.position.x + 4,
-            this.player.position.y + 3,
-            this.player.position.z + 5
-        );
-        
-        this.cameraPosition.lerp(this.cameraTarget, 0.08);
-        this.camera.position.copy(this.cameraPosition);
-        this.camera.lookAt(this.player.position);
+        if (this.gyroEnabled && this.gyroSupported) {
+            // Gyroscope-controlled camera
+            const sensitivity = 0.5;
+            
+            // Calculate relative rotation from base orientation
+            const deltaAlpha = (this.deviceOrientation.alpha - this.baseOrientation.alpha) * Math.PI / 180;
+            const deltaBeta = (this.deviceOrientation.beta - this.baseOrientation.beta) * Math.PI / 180;
+            const deltaGamma = (this.deviceOrientation.gamma - this.baseOrientation.gamma) * Math.PI / 180;
+            
+            // Calculate camera position using spherical coordinates around player
+            const distance = 8;
+            const height = 3;
+            
+            // Use gamma for horizontal rotation (left-right tilt)
+            const horizontalAngle = deltaGamma * sensitivity;
+            // Use beta for vertical rotation (front-back tilt), clamped
+            const verticalAngle = Math.max(-Math.PI/3, Math.min(Math.PI/6, deltaBeta * sensitivity));
+            
+            // Calculate camera position
+            const x = this.player.position.x + distance * Math.cos(verticalAngle) * Math.sin(horizontalAngle);
+            const y = this.player.position.y + height + distance * Math.sin(verticalAngle);
+            const z = this.player.position.z + distance * Math.cos(verticalAngle) * Math.cos(horizontalAngle);
+            
+            this.camera.position.set(x, y, z);
+            this.camera.lookAt(this.player.position);
+            
+        } else {
+            // Standard smooth camera follow
+            this.cameraTarget.set(
+                this.player.position.x + 4,
+                this.player.position.y + 3,
+                this.player.position.z + 5
+            );
+            
+            this.cameraPosition.lerp(this.cameraTarget, 0.08);
+            this.camera.position.copy(this.cameraPosition);
+            this.camera.lookAt(this.player.position);
+        }
     }
     
     updateUI() {
