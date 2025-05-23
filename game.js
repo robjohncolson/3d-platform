@@ -33,8 +33,8 @@ class Game {
                 moveY: 0,
                 maxDistance: 80, // Maximum distance from start point
                 sensitivity: 0.1, // Reduce sensitivity for better control
-                deadZone: 0.7, Dead zone to prevent accidental movement
-                smoothing: 1// Smoothing factor for more gradual movement
+                deadZone: 0.7, // Dead zone to prevent accidental movement
+                smoothing: 1 // Smoothing factor for more gradual movement
             },
             jump: {
                 active: false,
@@ -527,7 +527,7 @@ class Game {
         return player;
     }
     
-    createPlatform(x, y, z, width, height, depth, color = 0x22aa22) {
+    createPlatform(x, y, z, width, height, depth, color = 0x22aa22, friction = 0.88) {
         const geometry = new THREE.BoxGeometry(width, height, depth);
         const material = new THREE.MeshLambertMaterial({ color });
         const platform = new THREE.Mesh(geometry, material);
@@ -608,13 +608,13 @@ class Game {
             1: {
                 // Tutorial level - simple jumps
                 platforms: [
-                    [0, -0.5, 0, 4, 0.5, 4, 0x1a5c1a],      // Base
-                    [0, -0.2, -2, 1.5, 0.3, 1.5, 0x22aa22],
-                    [2, 0.2, -2, 1, 0.3, 1, 0x22aa22],
-                    [3, 0.6, 0, 1, 0.3, 1, 0x22aa22],
-                    [2, 1.0, 2, 1, 0.3, 1, 0x22aa22],
-                    [0, 1.4, 3, 1.5, 0.3, 1.5, 0x22aa22],
-                    [-2, 1.8, 2, 1, 0.3, 1, 0x22aa22],
+                    [0, -0.5, 0, 4, 0.5, 4, 0x1a5c1a, 0.88],      // Base - normal friction
+                    [0, -0.2, -2, 1.5, 0.3, 1.5, 0x22aa22, 0.88], // Normal platform
+                    [2, 0.2, -2, 1, 0.3, 1, 0x22aa22, 0.88],      // Normal platform
+                    [3, 0.6, 0, 1, 0.3, 1, 0x22aa22, 0.88],       // Normal platform
+                    [2, 1.0, 2, 1, 0.3, 1, 0x22aa22, 0.88],       // Normal platform
+                    [0, 1.4, 3, 1.5, 0.3, 1.5, 0x22aa22, 0.88],   // Normal platform
+                    [-2, 1.8, 2, 1, 0.3, 1, 0x22aa22, 0.88],      // Normal platform
                 ],
                 coins: [
                     [0, 0.5, -2], [2, 0.9, -2], [3, 1.3, 0],
@@ -622,19 +622,19 @@ class Game {
                 ]
             },
             2: {
-                // Precision jumping
+                // Precision jumping with slippery platforms
                 platforms: [
-                    [0, -0.5, 0, 4, 0.5, 4, 0x1a5c1a],
-                    [1, -0.2, -3, 1, 0.2, 1, 0x2222aa],
-                    [3, 0.1, -2, 1, 0.2, 1, 0x2222aa],
-                    [4, 0.5, 0, 1, 0.2, 1, 0x2222aa],
-                    [3, 0.9, 2, 1, 0.2, 1, 0x2222aa],
-                    [1, 1.3, 3, 1, 0.2, 1, 0x2222aa],
-                    [-1, 1.7, 3, 1, 0.2, 1, 0x2222aa],
-                    [-3, 2.1, 2, 1, 0.2, 1, 0x2222aa],
-                    [-4, 2.5, 0, 1, 0.2, 1, 0x2222aa],
-                    [-3, 2.9, -2, 1, 0.2, 1, 0x2222aa],
-                    [-1, 3.3, -3, 2, 0.2, 2, 0x2222aa],
+                    [0, -0.5, 0, 4, 0.5, 4, 0x1a5c1a, 0.88],      // Base - normal
+                    [1, -0.2, -3, 1, 0.2, 1, 0x4444ff, 0.98],     // Slippery ice platform
+                    [3, 0.1, -2, 1, 0.2, 1, 0x4444ff, 0.98],      // Slippery ice platform
+                    [4, 0.5, 0, 1, 0.2, 1, 0x2222aa, 0.88],       // Normal platform
+                    [3, 0.9, 2, 1, 0.2, 1, 0x4444ff, 0.98],       // Slippery ice platform
+                    [1, 1.3, 3, 1, 0.2, 1, 0x2222aa, 0.88],       // Normal platform
+                    [-1, 1.7, 3, 1, 0.2, 1, 0x4444ff, 0.98],      // Slippery ice platform
+                    [-3, 2.1, 2, 1, 0.2, 1, 0x2222aa, 0.88],      // Normal platform
+                    [-4, 2.5, 0, 1, 0.2, 1, 0x4444ff, 0.98],      // Slippery ice platform
+                    [-3, 2.9, -2, 1, 0.2, 1, 0x2222aa, 0.88],     // Normal platform
+                    [-1, 3.3, -3, 2, 0.2, 2, 0x2222aa, 0.88],     // Normal platform
                 ],
                 coins: [
                     [1, 0.5, -3], [3, 0.8, -2], [4, 1.2, 0], [3, 1.6, 2],
@@ -643,20 +643,20 @@ class Game {
                 ]
             },
             3: {
-                // Spiral tower
+                // Spiral tower with grippy platforms
                 platforms: [
-                    [0, -0.5, 0, 3, 0.5, 3, 0x1a5c1a],
-                    [2, 0.0, 0, 1, 0.2, 1, 0xaa2222],
-                    [2, 0.4, -2, 1, 0.2, 1, 0xaa2222],
-                    [0, 0.8, -3, 1, 0.2, 1, 0xaa2222],
-                    [-2, 1.2, -2, 1, 0.2, 1, 0xaa2222],
-                    [-3, 1.6, 0, 1, 0.2, 1, 0xaa2222],
-                    [-2, 2.0, 2, 1, 0.2, 1, 0xaa2222],
-                    [0, 2.4, 3, 1, 0.2, 1, 0xaa2222],
-                    [2, 2.8, 2, 1, 0.2, 1, 0xaa2222],
-                    [3, 3.2, 0, 1, 0.2, 1, 0xaa2222],
-                    [2, 3.6, -1, 1, 0.2, 1, 0xaa2222],
-                    [0, 4.0, -2, 2, 0.2, 2, 0xaa2222],
+                    [0, -0.5, 0, 3, 0.5, 3, 0x1a5c1a, 0.88],      // Base - normal
+                    [2, 0.0, 0, 1, 0.2, 1, 0xcc4444, 0.70],       // Grippy platform
+                    [2, 0.4, -2, 1, 0.2, 1, 0xcc4444, 0.70],      // Grippy platform
+                    [0, 0.8, -3, 1, 0.2, 1, 0xaa2222, 0.88],      // Normal platform
+                    [-2, 1.2, -2, 1, 0.2, 1, 0xcc4444, 0.70],     // Grippy platform
+                    [-3, 1.6, 0, 1, 0.2, 1, 0xaa2222, 0.88],      // Normal platform
+                    [-2, 2.0, 2, 1, 0.2, 1, 0xcc4444, 0.70],      // Grippy platform
+                    [0, 2.4, 3, 1, 0.2, 1, 0xaa2222, 0.88],       // Normal platform
+                    [2, 2.8, 2, 1, 0.2, 1, 0xcc4444, 0.70],       // Grippy platform
+                    [3, 3.2, 0, 1, 0.2, 1, 0xaa2222, 0.88],       // Normal platform
+                    [2, 3.6, -1, 1, 0.2, 1, 0xcc4444, 0.70],      // Grippy platform
+                    [0, 4.0, -2, 2, 0.2, 2, 0xaa2222, 0.88],      // Normal platform
                 ],
                 coins: [
                     [2, 0.7, 0], [2, 1.1, -2], [0, 1.5, -3], [-2, 1.9, -2],
@@ -665,20 +665,20 @@ class Game {
                 ]
             },
             4: {
-                // Long jumps and gaps
+                // Long jumps and gaps with mixed friction
                 platforms: [
-                    [0, -0.5, 0, 2, 0.5, 2, 0x1a5c1a],
-                    [4, 0.0, 0, 1.5, 0.3, 1.5, 0xaaaa22],
-                    [8, 0.3, -1, 1, 0.3, 1, 0xaaaa22],
-                    [6, 0.8, -4, 1, 0.3, 1, 0xaaaa22],
-                    [2, 1.2, -5, 1, 0.3, 1, 0xaaaa22],
-                    [-2, 1.6, -4, 1, 0.3, 1, 0xaaaa22],
-                    [-5, 2.0, -1, 1, 0.3, 1, 0xaaaa22],
-                    [-7, 2.4, 2, 1, 0.3, 1, 0xaaaa22],
-                    [-4, 2.8, 5, 1, 0.3, 1, 0xaaaa22],
-                    [0, 3.2, 6, 1, 0.3, 1, 0xaaaa22],
-                    [4, 3.6, 4, 1, 0.3, 1, 0xaaaa22],
-                    [7, 4.0, 1, 1.5, 0.3, 1.5, 0xaaaa22],
+                    [0, -0.5, 0, 2, 0.5, 2, 0x1a5c1a, 0.88],      // Base - normal
+                    [4, 0.0, 0, 1.5, 0.3, 1.5, 0xaaaa22, 0.88],   // Normal platform
+                    [8, 0.3, -1, 1, 0.3, 1, 0x4444ff, 0.98],      // Slippery ice platform
+                    [6, 0.8, -4, 1, 0.3, 1, 0xcc4444, 0.70],      // Grippy platform
+                    [2, 1.2, -5, 1, 0.3, 1, 0x4444ff, 0.98],      // Slippery ice platform
+                    [-2, 1.6, -4, 1, 0.3, 1, 0xaaaa22, 0.88],     // Normal platform
+                    [-5, 2.0, -1, 1, 0.3, 1, 0xcc4444, 0.70],     // Grippy platform
+                    [-7, 2.4, 2, 1, 0.3, 1, 0x4444ff, 0.98],      // Slippery ice platform
+                    [-4, 2.8, 5, 1, 0.3, 1, 0xaaaa22, 0.88],      // Normal platform
+                    [0, 3.2, 6, 1, 0.3, 1, 0xcc4444, 0.70],       // Grippy platform
+                    [4, 3.6, 4, 1, 0.3, 1, 0x4444ff, 0.98],       // Slippery ice platform
+                    [7, 4.0, 1, 1.5, 0.3, 1.5, 0xaaaa22, 0.88],   // Normal platform
                 ],
                 coins: [
                     [4, 0.7, 0], [8, 1.0, -1], [6, 1.5, -4], [2, 1.9, -5],
@@ -687,23 +687,23 @@ class Game {
                 ]
             },
             5: {
-                // Moving maze
+                // Moving maze with extreme friction variations
                 platforms: [
-                    [0, -0.5, 0, 2, 0.5, 2, 0x1a5c1a],
-                    [3, 0.0, 0, 1, 0.2, 3, 0xaaaaaa],
-                    [1, 0.4, 3, 3, 0.2, 1, 0xaaaaaa],
-                    [-1, 0.8, 5, 1, 0.2, 1, 0xaaaaaa],
-                    [-4, 1.2, 4, 1, 0.2, 3, 0xaaaaaa],
-                    [-6, 1.6, 1, 3, 0.2, 1, 0xaaaaaa],
-                    [-4, 2.0, -1, 1, 0.2, 1, 0xaaaaaa],
-                    [-1, 2.4, -2, 1, 0.2, 3, 0xaaaaaa],
-                    [2, 2.8, -1, 1, 0.2, 1, 0xaaaaaa],
-                    [5, 3.2, 0, 1, 0.2, 3, 0xaaaaaa],
-                    [3, 3.6, 3, 3, 0.2, 1, 0xaaaaaa],
-                    [0, 4.0, 5, 1, 0.2, 1, 0xaaaaaa],
-                    [-3, 4.4, 3, 1, 0.2, 1, 0xaaaaaa],
-                    [-5, 4.8, 0, 1, 0.2, 1, 0xaaaaaa],
-                    [-2, 5.2, -2, 3, 0.2, 1, 0xaaaaaa],
+                    [0, -0.5, 0, 2, 0.5, 2, 0x1a5c1a, 0.88],      // Base - normal
+                    [3, 0.0, 0, 1, 0.2, 3, 0x6666ff, 0.99],       // Super slippery ice
+                    [1, 0.4, 3, 3, 0.2, 1, 0xcc4444, 0.70],       // Grippy platform
+                    [-1, 0.8, 5, 1, 0.2, 1, 0xaaaaaa, 0.88],      // Normal platform
+                    [-4, 1.2, 4, 1, 0.2, 3, 0x6666ff, 0.99],      // Super slippery ice
+                    [-6, 1.6, 1, 3, 0.2, 1, 0xcc4444, 0.70],      // Grippy platform
+                    [-4, 2.0, -1, 1, 0.2, 1, 0xaaaaaa, 0.88],     // Normal platform
+                    [-1, 2.4, -2, 1, 0.2, 3, 0x6666ff, 0.99],     // Super slippery ice
+                    [2, 2.8, -1, 1, 0.2, 1, 0xcc4444, 0.70],      // Grippy platform
+                    [5, 3.2, 0, 1, 0.2, 3, 0xaaaaaa, 0.88],       // Normal platform
+                    [3, 3.6, 3, 3, 0.2, 1, 0x6666ff, 0.99],       // Super slippery ice
+                    [0, 4.0, 5, 1, 0.2, 1, 0xcc4444, 0.70],       // Grippy platform
+                    [-3, 4.4, 3, 1, 0.2, 1, 0xaaaaaa, 0.88],      // Normal platform
+                    [-5, 4.8, 0, 1, 0.2, 1, 0x6666ff, 0.99],      // Super slippery ice
+                    [-2, 5.2, -2, 3, 0.2, 1, 0xcc4444, 0.70],     // Grippy platform
                 ],
                 coins: [
                     [3, 0.7, 1], [1, 1.1, 3], [-1, 1.5, 5], [-4, 1.9, 3],
@@ -718,9 +718,14 @@ class Game {
         if (!currentLevel) return;
         
         // Create platforms
-        currentLevel.platforms.forEach(([x, y, z, w, h, d, color]) => {
-            const platform = this.createPlatform(x, y, z, w, h, d, color);
-            this.platforms.push({ mesh: platform, x, y, z, width: w, height: h, depth: d });
+        currentLevel.platforms.forEach(([x, y, z, w, h, d, color, friction]) => {
+            const platform = this.createPlatform(x, y, z, w, h, d, color, friction);
+            this.platforms.push({ 
+                mesh: platform, 
+                x, y, z, 
+                width: w, height: h, depth: d,
+                friction: friction || 0.88 // Default friction if not specified
+            });
         });
         
         // Create coins
@@ -790,9 +795,28 @@ class Game {
             this.playJumpSound();
         }
         
-        // Apply friction
-        vel.x *= player.friction;
-        vel.z *= player.friction;
+        // Apply friction - use platform-specific friction if on ground
+        let currentFriction = player.friction; // Default player friction
+        
+        if (player.onGround) {
+            // Find which platform the player is on and use its friction
+            for (let platform of this.platforms) {
+                const px = platform.x, py = platform.y, pz = platform.z;
+                const pw = platform.width, ph = platform.height, pd = platform.depth;
+                
+                // Check if player is on this platform
+                if (Math.abs(player.position.x - px) < pw/2 + player.size &&
+                    Math.abs(player.position.z - pz) < pd/2 + player.size &&
+                    Math.abs(player.position.y - (py + ph/2 + player.size)) < 0.1) {
+                    
+                    currentFriction = platform.friction;
+                    break;
+                }
+            }
+        }
+        
+        vel.x *= currentFriction;
+        vel.z *= currentFriction;
         
         // Limit horizontal speed
         const horizontalSpeed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
