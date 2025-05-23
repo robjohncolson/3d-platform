@@ -31,7 +31,10 @@ class Game {
                 currentY: 0,
                 moveX: 0,
                 moveY: 0,
-                maxDistance: 80 // Maximum distance from start point
+                maxDistance: 80, // Maximum distance from start point
+                sensitivity: 0.7, // Reduce sensitivity for better control
+                deadZone: 0.15, // Dead zone to prevent accidental movement
+                smoothing: 0.8 // Smoothing factor for more gradual movement
             },
             jump: {
                 active: false,
@@ -366,9 +369,32 @@ class Game {
                         this.touchZones.movement.currentY = Math.sin(angle) * this.touchZones.movement.maxDistance;
                     }
                     
-                    // Calculate normalized movement (-1 to 1)
-                    this.touchZones.movement.moveX = this.touchZones.movement.currentX / this.touchZones.movement.maxDistance;
-                    this.touchZones.movement.moveY = this.touchZones.movement.currentY / this.touchZones.movement.maxDistance;
+                    // Calculate normalized movement (-1 to 1) with sensitivity and dead zone
+                    let rawMoveX = this.touchZones.movement.currentX / this.touchZones.movement.maxDistance;
+                    let rawMoveY = this.touchZones.movement.currentY / this.touchZones.movement.maxDistance;
+                    
+                    // Apply dead zone
+                    const rawDistance = Math.sqrt(rawMoveX * rawMoveX + rawMoveY * rawMoveY);
+                    if (rawDistance < this.touchZones.movement.deadZone) {
+                        rawMoveX = 0;
+                        rawMoveY = 0;
+                    } else {
+                        // Scale to account for dead zone
+                        const scale = (rawDistance - this.touchZones.movement.deadZone) / (1 - this.touchZones.movement.deadZone);
+                        const angle = Math.atan2(rawMoveY, rawMoveX);
+                        rawMoveX = Math.cos(angle) * scale;
+                        rawMoveY = Math.sin(angle) * scale;
+                    }
+                    
+                    // Apply sensitivity scaling
+                    rawMoveX *= this.touchZones.movement.sensitivity;
+                    rawMoveY *= this.touchZones.movement.sensitivity;
+                    
+                    // Apply smoothing
+                    this.touchZones.movement.moveX = this.touchZones.movement.moveX * this.touchZones.movement.smoothing + 
+                                                     rawMoveX * (1 - this.touchZones.movement.smoothing);
+                    this.touchZones.movement.moveY = this.touchZones.movement.moveY * this.touchZones.movement.smoothing + 
+                                                     rawMoveY * (1 - this.touchZones.movement.smoothing);
                     
                     this.updateTouchDebug();
                     break;
@@ -388,8 +414,7 @@ class Game {
                     
                     this.touchZones.movement.active = false;
                     this.touchZones.movement.touchId = null;
-                    this.touchZones.movement.moveX = 0;
-                    this.touchZones.movement.moveY = 0;
+                    // Don't immediately zero - let it decay naturally through smoothing
                     this.touchZones.movement.currentX = 0;
                     this.touchZones.movement.currentY = 0;
                     console.log('Movement zone deactivated');
@@ -450,6 +475,19 @@ class Game {
         if (this.touchZones.movement.active) {
             moveX = this.touchZones.movement.moveX;
             moveY = this.touchZones.movement.moveY;
+        } else {
+            // Apply decay when not actively touching
+            if (Math.abs(this.touchZones.movement.moveX) > 0.01 || Math.abs(this.touchZones.movement.moveY) > 0.01) {
+                this.touchZones.movement.moveX *= 0.85; // Decay factor
+                this.touchZones.movement.moveY *= 0.85;
+                moveX = this.touchZones.movement.moveX;
+                moveY = this.touchZones.movement.moveY;
+                this.updateTouchDebug();
+            } else {
+                // Stop completely when very small
+                this.touchZones.movement.moveX = 0;
+                this.touchZones.movement.moveY = 0;
+            }
         }
         
         return { x: moveX, y: moveY };
