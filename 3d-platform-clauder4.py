@@ -399,6 +399,11 @@ class Game:
         self.particles = ParticleSystem()
         self.save_system = SaveSystem()
         
+        # Initialize joystick support
+        pygame.joystick.init()
+        self.joystick = None
+        self.setup_controller()
+        
         # Game state - simplified, no menu
         self.game_state = "playing"  # playing, paused, game_over, level_complete
         self.score = 0
@@ -419,9 +424,76 @@ class Game:
         
         print("Enhanced 3D Platformer")
         print("Game: WASD - Move, SPACE/SHIFT - Jump, ESC - Pause, R - Restart")
+        print("Controller: Left stick/D-pad - Move, A/B/X/Y - Jump, Start - Pause")
         print("Custom Levels: 6-0 - Load custom level from slots 1-5")
+        print("Info: C - Show controller details")
         print("Game Started! Use WASD to move, SPACE or SHIFT to jump")
         
+    def setup_controller(self):
+        """Initialize and detect game controller"""
+        try:
+            # Quit any existing joystick first
+            if self.joystick:
+                try:
+                    self.joystick.quit()
+                except:
+                    pass
+                self.joystick = None
+            
+            joystick_count = pygame.joystick.get_count()
+            if joystick_count > 0:
+                # Try to find the best controller (prefer 8bitdo)
+                best_controller = 0
+                for i in range(joystick_count):
+                    temp_joy = pygame.joystick.Joystick(i)
+                    controller_name = temp_joy.get_name().lower()
+                    
+                    # Prefer 8bitdo controllers
+                    if "8bitdo" in controller_name or "ultimate" in controller_name:
+                        best_controller = i
+                        break
+                
+                self.joystick = pygame.joystick.Joystick(best_controller)
+                self.joystick.init()
+                controller_name = self.joystick.get_name()
+                
+                print(f"🎮 Controller detected: {controller_name}")
+                print(f"   Buttons: {self.joystick.get_numbuttons()}")
+                print(f"   Axes: {self.joystick.get_numaxes()}")
+                print(f"   Hats: {self.joystick.get_numhats()}")
+                
+                # Controller-specific optimizations
+                controller_name_lower = controller_name.lower()
+                if "8bitdo" in controller_name_lower:
+                    if "ultimate" in controller_name_lower:
+                        print("✓ 8bitdo Ultimate series detected! Full feature support enabled.")
+                        print("  • Switch modes with the controller if needed (X+Start for X-input)")
+                    else:
+                        print("✓ 8bitdo controller detected! Basic support enabled.")
+                elif "xbox" in controller_name_lower:
+                    print("✓ Xbox controller detected! Compatible mode enabled.")
+                elif "playstation" in controller_name_lower or "ps" in controller_name_lower:
+                    print("✓ PlayStation controller detected! Compatible mode enabled.")
+                else:
+                    print("✓ Generic controller detected! Basic support enabled.")
+                
+                print("  • Press C key anytime to view detailed controller info")
+                
+                return True
+                
+            else:
+                print("No controller detected. Keyboard controls available.")
+                print("🎮 To use a controller:")
+                print("  1. Connect your 8bitdo Ultimate 2")
+                print("  2. Make sure it's in the right mode (try X+Start for X-input)")
+                print("  3. Restart the game or press C to check status")
+                return False
+                
+        except Exception as e:
+            print(f"Controller setup failed: {e}")
+            self.joystick = None
+            return False
+    
     def load_level(self, level_num):
         self.level = level_num
         
@@ -588,6 +660,9 @@ class Game:
                         self.game_state = "playing"
                 elif event.key == pygame.K_r and self.game_state == "playing":
                     self.restart_level()
+                elif event.key == pygame.K_c:
+                    # Display controller information
+                    self.display_controller_info()
                 # Custom level loading
                 elif self.game_state == "playing":
                     if event.key == pygame.K_6:
@@ -605,35 +680,109 @@ class Game:
                     elif event.key == pygame.K_0:
                         self.load_level(5)  # Slot 5
                         print("Loading custom level from slot 5...")
+            
+            # Controller events
+            elif event.type == pygame.JOYBUTTONDOWN:
+                if self.joystick and event.joy == 0:
+                    # 8bitdo Ultimate 2 button mapping:
+                    # Button 0: A (South), Button 1: B (East)
+                    # Button 2: X (West), Button 3: Y (North)
+                    # Button 9: Start/Menu, Button 8: Back/Select
+                    
+                    if self.game_state == "playing":
+                        # Jump buttons - A, B, X, Y (any face button)
+                        if event.button in [0, 1, 2, 3]:
+                            self.player.jump(self.sound_manager, self.particles)
+                            print(f"Controller jump! Button {event.button}")
+                        
+                        # Start button for pause
+                        elif event.button == 9:  # Start
+                            self.game_state = "paused"
+                            print("Game paused (controller)")
+                            
+                        # Back/Select button for restart
+                        elif event.button == 8:  # Back/Select
+                            self.restart_level()
+                            print("Level restarted (controller)")
+                            
+                        # Shoulder buttons for level switching (L1/R1)
+                        elif event.button == 6:  # L1/LB - previous level
+                            if self.level > 1:
+                                self.load_level(self.level - 1)
+                                print(f"Switched to level {self.level}")
+                        elif event.button == 7:  # R1/RB - next level  
+                            if self.level < 5:
+                                self.load_level(self.level + 1)
+                                print(f"Switched to level {self.level}")
+                    
+                    elif self.game_state == "paused":
+                        # Start button to unpause
+                        if event.button == 9:  # Start
+                            self.game_state = "playing"
+                            print("Game unpaused (controller)")
+            
+            # Controller connected/disconnected
+            elif event.type == pygame.JOYDEVICEADDED:
+                print(f"🎮 Controller connected!")
+                self.setup_controller()
+            elif event.type == pygame.JOYDEVICEREMOVED:
+                print("🎮 Controller disconnected!")
+                self.joystick = None
         
-        # Movement and jump - all handled with continuous key checking
+        # Movement and jump - continuous input checking for both keyboard and controller
         if self.game_state == "playing":
+            # Keyboard input
             keys = pygame.key.get_pressed()
             move_dir = [0, 0]
             
-            # Debug key detection
-            pressed_keys = []
             if keys[pygame.K_w] or keys[pygame.K_UP]:
                 move_dir[1] -= 1
-                pressed_keys.append("W/UP")
             if keys[pygame.K_s] or keys[pygame.K_DOWN]:
                 move_dir[1] += 1
-                pressed_keys.append("S/DOWN")
             if keys[pygame.K_a] or keys[pygame.K_LEFT]:
                 move_dir[0] -= 1
-                pressed_keys.append("A/LEFT")
             if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
                 move_dir[0] += 1
-                pressed_keys.append("D/RIGHT")
             
-            # Handle jump with multiple detection methods to work around keyboard ghosting
+            # Controller input
+            if self.joystick:
+                try:
+                    # Left analog stick input
+                    if self.joystick.get_numaxes() >= 2:
+                        stick_x = self.joystick.get_axis(0)  # Left stick X
+                        stick_y = self.joystick.get_axis(1)  # Left stick Y
+                        
+                        # Apply deadzone
+                        deadzone = 0.15
+                        if abs(stick_x) > deadzone:
+                            move_dir[0] += stick_x
+                        if abs(stick_y) > deadzone:
+                            move_dir[1] += stick_y
+                    
+                    # D-pad input (hat)
+                    if self.joystick.get_numhats() >= 1:
+                        hat_x, hat_y = self.joystick.get_hat(0)
+                        move_dir[0] += hat_x
+                        move_dir[1] -= hat_y  # Invert Y for intuitive movement
+                    
+                    # Face buttons for jumping (continuous check for held buttons)
+                    if (self.joystick.get_button(0) or  # A
+                        self.joystick.get_button(1) or  # B  
+                        self.joystick.get_button(2) or  # X
+                        self.joystick.get_button(3)):   # Y
+                        self.player.jump(self.sound_manager, self.particles)
+                        
+                except Exception as e:
+                    print(f"Controller input error: {e}")
+            
+            # Keyboard jump input
             space_pressed = (keys[pygame.K_SPACE] or 
-                           keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT])  # Alternative: shift also jumps
+                           keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT])
             
             if space_pressed:
-                pressed_keys.append("JUMP")
                 self.player.jump(self.sound_manager, self.particles)
             
+            # Normalize movement direction
             if move_dir[0] != 0 or move_dir[1] != 0:
                 length = math.sqrt(move_dir[0]**2 + move_dir[1]**2)
                 move_dir[0] /= length
@@ -843,13 +992,55 @@ class Game:
         glPopMatrix()
         glMatrixMode(GL_MODELVIEW)
     
+    def display_controller_info(self):
+        """Display detailed controller information for debugging"""
+        if not self.joystick:
+            print("No controller connected.")
+            return
+            
+        try:
+            print(f"\n🎮 Controller Info:")
+            print(f"   Name: {self.joystick.get_name()}")
+            print(f"   ID: {self.joystick.get_instance_id()}")
+            print(f"   Buttons: {self.joystick.get_numbuttons()}")
+            print(f"   Axes: {self.joystick.get_numaxes()}")
+            print(f"   Hats: {self.joystick.get_numhats()}")
+            
+            print(f"\n🎮 8bitdo Ultimate 2 Controls:")
+            print(f"   Left Stick/D-pad: Move")
+            print(f"   A/B/X/Y buttons: Jump")
+            print(f"   Start button: Pause/Unpause")
+            print(f"   Back/Select: Restart level")
+            print(f"   L1/LB: Previous level")
+            print(f"   R1/RB: Next level")
+            
+            # Show current input state
+            if self.joystick.get_numaxes() >= 2:
+                stick_x = self.joystick.get_axis(0)
+                stick_y = self.joystick.get_axis(1)
+                print(f"   Left stick: X={stick_x:.2f}, Y={stick_y:.2f}")
+            
+            if self.joystick.get_numhats() >= 1:
+                hat_x, hat_y = self.joystick.get_hat(0)
+                print(f"   D-pad: X={hat_x}, Y={hat_y}")
+                
+        except Exception as e:
+            print(f"Error reading controller info: {e}")
+
     def restart_game(self):
         self.game_state = "playing"
         self.score = 0
         self.lives = 3
         self.level = 1
+        
+        # Reinitialize controller if needed
+        if not self.joystick:
+            self.setup_controller()
+            
         self.load_level(1)
         print("Game Started! Use WASD to move, SPACE or SHIFT to jump")
+        if self.joystick:
+            print("🎮 Controller ready! Use left stick/D-pad to move, face buttons to jump")
         print(f"Current state: {self.game_state}")
         print(f"Platforms: {len(self.platforms)}")
         print(f"Coins: {len(self.coins)}")
