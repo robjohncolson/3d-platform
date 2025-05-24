@@ -229,6 +229,7 @@
             <div>Lives: <span id="lives">3</span></div>
             <div>Coins: <span id="coins">0</span></div>
             <div id="gyro-toggle" class="gyro-btn">🎯 Gyro: OFF</div>
+            <div id="gamepad-status" style="display: none; margin-top: 5px; font-size: 12px; color: #64ff64;">🎮 Controller Connected</div>
             <div style="margin-top: 10px;">
                 <input type="file" id="level-file-input" accept=".json" style="display: none;">
                 <button id="load-custom-btn" class="custom-level-btn">📁 Load Custom Level</button>
@@ -248,7 +249,7 @@
         </div>
         
         <!-- Temporary debug display -->
-        <div id="touch-debug" class="touch-debug">Touch: Left=Movement, Right=Jump</div>
+        <div id="touch-debug" class="touch-debug">Controls: Keyboard/Touch/Gamepad Ready</div>
         
         <!-- Visual touch zone indicators for mobile -->
         <div class="touch-zone-indicator touch-zone-movement"></div>

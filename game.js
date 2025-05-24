@@ -77,6 +77,19 @@ class Game {
         this.baseOrientation = { alpha: 0, beta: 0, gamma: 0 };
         this.gyroSupported = false;
         
+        // Gamepad system
+        this.gamepad = null;
+        this.gamepadSupported = false;
+        this.gamepadIndex = -1;
+        this.gamepadConnected = false;
+        
+        // Camera rotation (for gamepad right stick control)
+        this.cameraYaw = 0.0;      // Horizontal rotation
+        this.cameraPitch = -20.0;  // Vertical rotation - start looking slightly down
+        this.cameraDistance = 8.0; // Distance from player
+        this.cameraSensitivity = 100.0; // Degrees per second
+        this.cameraMode = 'follow'; // 'follow', 'gyro', or 'gamepad'
+        
         this.init();
     }
     
@@ -260,10 +273,117 @@ class Game {
         }
     }
     
+    setupGamepad() {
+        // Check if Gamepad API is supported
+        if (typeof navigator.getGamepads === 'function') {
+            this.gamepadSupported = true;
+            
+            // Add gamepad event listeners
+            window.addEventListener('gamepadconnected', (e) => {
+                console.log(`🎮 Gamepad connected: ${e.gamepad.id}`);
+                this.gamepad = e.gamepad;
+                this.gamepadIndex = e.gamepad.index;
+                this.gamepadConnected = true;
+                
+                // Check for 8bitdo controller
+                if (e.gamepad.id.toLowerCase().includes('8bitdo') || 
+                    e.gamepad.id.toLowerCase().includes('ultimate')) {
+                    console.log('✓ 8bitdo Ultimate controller detected! Full feature support enabled.');
+                }
+                
+                this.updateGamepadUI();
+            });
+            
+            window.addEventListener('gamepaddisconnected', (e) => {
+                console.log('🎮 Gamepad disconnected');
+                this.gamepad = null;
+                this.gamepadIndex = -1;
+                this.gamepadConnected = false;
+                this.cameraMode = 'follow'; // Revert to follow mode
+                this.updateGamepadUI();
+            });
+            
+            // Check for already connected gamepads
+            this.scanForGamepads();
+            
+            console.log('Gamepad support initialized');
+        } else {
+            console.log('Gamepad API not supported in this browser');
+        }
+    }
+    
+    scanForGamepads() {
+        const gamepads = navigator.getGamepads();
+        for (let i = 0; i < gamepads.length; i++) {
+            if (gamepads[i]) {
+                console.log(`🎮 Found connected gamepad: ${gamepads[i].id}`);
+                this.gamepad = gamepads[i];
+                this.gamepadIndex = i;
+                this.gamepadConnected = true;
+                this.updateGamepadUI();
+                break;
+            }
+        }
+    }
+    
+    updateGamepadUI() {
+        const gamepadStatus = document.getElementById('gamepad-status');
+        if (gamepadStatus) {
+            if (this.gamepadConnected && this.gamepad) {
+                gamepadStatus.textContent = `🎮 ${this.gamepad.id.substring(0, 20)}...`;
+                gamepadStatus.style.display = 'block';
+            } else {
+                gamepadStatus.style.display = 'none';
+            }
+        }
+    }
+    
+    getGamepadInput() {
+        if (!this.gamepadConnected || !this.gamepadSupported) return null;
+        
+        // Get fresh gamepad state (required by API)
+        const gamepads = navigator.getGamepads();
+        if (!gamepads[this.gamepadIndex]) return null;
+        
+        this.gamepad = gamepads[this.gamepadIndex];
+        
+        return {
+            // Left stick (movement)
+            leftStick: {
+                x: this.gamepad.axes[0] || 0,
+                y: this.gamepad.axes[1] || 0
+            },
+            // Right stick (camera)
+            rightStick: {
+                x: this.gamepad.axes[2] || 0,
+                y: this.gamepad.axes[3] || 0
+            },
+            // Buttons
+            buttons: {
+                a: this.gamepad.buttons[0] && this.gamepad.buttons[0].pressed,      // A
+                b: this.gamepad.buttons[1] && this.gamepad.buttons[1].pressed,      // B
+                x: this.gamepad.buttons[2] && this.gamepad.buttons[2].pressed,      // X
+                y: this.gamepad.buttons[3] && this.gamepad.buttons[3].pressed,      // Y
+                lb: this.gamepad.buttons[4] && this.gamepad.buttons[4].pressed,     // L1/LB
+                rb: this.gamepad.buttons[5] && this.gamepad.buttons[5].pressed,     // R1/RB
+                back: this.gamepad.buttons[8] && this.gamepad.buttons[8].pressed,   // Back/Select
+                start: this.gamepad.buttons[9] && this.gamepad.buttons[9].pressed,  // Start
+            },
+            // D-pad
+            dpad: {
+                up: this.gamepad.buttons[12] && this.gamepad.buttons[12].pressed,
+                down: this.gamepad.buttons[13] && this.gamepad.buttons[13].pressed,
+                left: this.gamepad.buttons[14] && this.gamepad.buttons[14].pressed,
+                right: this.gamepad.buttons[15] && this.gamepad.buttons[15].pressed,
+            }
+        };
+    }
+    
     init() {
         this.setupLighting();
         this.setupControls();
         this.setupGyroscope(); // RE-ENABLED - works great on mobile!
+        this.setupGamepad();   // NEW - gamepad support
         this.loadLevel(1);
         this.updateUI();
         this.animate();
@@ -272,6 +392,9 @@ class Game {
         window.addEventListener('resize', () => this.onWindowResize());
         
         console.log('3D Platformer Game Started!');
+        console.log('Controls: WASD/Arrows - Move, Space/Shift - Jump');
+        console.log('Mobile: Left half - Move, Right half - Jump');
+        console.log('Gamepad: Left stick - Move, Right stick - Camera, Face buttons - Jump');
     }
     
     setupLighting() {
@@ -301,6 +424,12 @@ class Game {
             if (event.code === 'KeyL' && (event.ctrlKey || event.metaKey)) {
                 event.preventDefault(); // Prevent Ctrl+L from opening file dialog
                 return;
+            }
+            
+            // Camera reset
+            if (event.code === 'KeyV') {
+                this.resetCamera();
+                console.log('Camera reset to default position');
             }
             
             this.keys[event.code] = true;
@@ -472,25 +601,40 @@ class Game {
     }
     
     isKeyPressed(key) {
-        // Check keyboard and touch controls
+        // Check keyboard, touch controls, and gamepad
         switch(key) {
             case 'jump': 
-                // Check if jump was just pressed (keyboard or touch)
+                // Check if jump was just pressed (keyboard, touch, or gamepad)
                 const keyboardJump = this.keys['Space'] || this.keys['ShiftLeft'] || this.keys['ShiftRight'];
                 const touchJump = this.touchZones.jump.justPressed;
                 
+                // Gamepad face buttons (A, B, X, Y)
+                let gamepadJump = false;
+                const gamepadInput = this.getGamepadInput();
+                if (gamepadInput) {
+                    gamepadJump = gamepadInput.buttons.a || gamepadInput.buttons.b || 
+                                 gamepadInput.buttons.x || gamepadInput.buttons.y;
+                }
+                
                 // Track overall jump state for edge detection
-                const currentJumpState = keyboardJump || this.touchZones.jump.active;
+                const currentJumpState = keyboardJump || this.touchZones.jump.active || gamepadJump;
                 const jumpJustPressed = (currentJumpState && !this.jumpPressed) || touchJump;
                 
                 return jumpJustPressed;
-            case 'restart': return this.keys['KeyR'];
+            case 'restart': 
+                const keyboardRestart = this.keys['KeyR'];
+                let gamepadRestart = false;
+                const gamepadInput2 = this.getGamepadInput();
+                if (gamepadInput2) {
+                    gamepadRestart = gamepadInput2.buttons.back; // Back/Select button
+                }
+                return keyboardRestart || gamepadRestart;
             default: return false;
         }
     }
     
     getMovementInput() {
-        // Combine keyboard and touch zones input
+        // Combine keyboard, touch zones, and gamepad input
         let moveX = 0, moveY = 0;
         
         // Keyboard input
@@ -499,7 +643,27 @@ class Game {
         if (this.keys['KeyA'] || this.keys['ArrowLeft']) moveX -= 1;
         if (this.keys['KeyD'] || this.keys['ArrowRight']) moveX += 1;
         
-        // Touch zones input (override keyboard if active)
+        // Gamepad input (left stick and D-pad)
+        const gamepadInput = this.getGamepadInput();
+        if (gamepadInput) {
+            const deadzone = 0.15;
+            
+            // Left stick input
+            if (Math.abs(gamepadInput.leftStick.x) > deadzone) {
+                moveX += gamepadInput.leftStick.x;
+            }
+            if (Math.abs(gamepadInput.leftStick.y) > deadzone) {
+                moveY += gamepadInput.leftStick.y;
+            }
+            
+            // D-pad input
+            if (gamepadInput.dpad.left) moveX -= 1;
+            if (gamepadInput.dpad.right) moveX += 1;
+            if (gamepadInput.dpad.up) moveY -= 1;
+            if (gamepadInput.dpad.down) moveY += 1;
+        }
+        
+        // Touch zones input (override keyboard and gamepad if active)
         if (this.touchZones.movement.active) {
             moveX = this.touchZones.movement.moveX;
             moveY = this.touchZones.movement.moveY;
@@ -832,6 +996,23 @@ class Game {
         this.jumpPressed = currentJumpState;
         this.touchZones.jump.justPressed = false; // Clear each frame
         
+        // Handle gamepad special buttons
+        const gamepadInput = this.getGamepadInput();
+        if (gamepadInput) {
+            // Start button for pause (future implementation)
+            if (gamepadInput.buttons.start) {
+                console.log('Start button pressed - pause functionality could go here');
+            }
+            
+            // Shoulder buttons for level switching (future implementation)
+            if (gamepadInput.buttons.lb) {
+                console.log('Left bumper pressed - previous level functionality could go here');
+            }
+            if (gamepadInput.buttons.rb) {
+                console.log('Right bumper pressed - next level functionality could go here');
+            }
+        }
+        
         // Apply friction - use platform-specific friction if on ground
         let currentFriction = player.friction; // Default player friction
         
@@ -1059,8 +1240,56 @@ class Game {
     }
     
     updateCamera() {
-        if (this.gyroEnabled && this.gyroSupported) {
+        // Handle gamepad camera input first (if connected)
+        const gamepadInput = this.getGamepadInput();
+        if (gamepadInput && this.gamepadConnected) {
+            const deadzone = 0.1;
+            const rightStick = gamepadInput.rightStick;
+            
+            // Apply right stick camera rotation
+            if (Math.abs(rightStick.x) > deadzone || Math.abs(rightStick.y) > deadzone) {
+                const deltaTime = 1/60; // Approximate for smooth camera
+                
+                if (Math.abs(rightStick.x) > deadzone) {
+                    this.cameraYaw += rightStick.x * this.cameraSensitivity * deltaTime;
+                }
+                if (Math.abs(rightStick.y) > deadzone) {
+                    this.cameraPitch += rightStick.y * this.cameraSensitivity * deltaTime;
+                }
+                
+                // Clamp pitch to prevent camera flipping
+                this.cameraPitch = Math.max(-80.0, Math.min(80.0, this.cameraPitch));
+                
+                // Switch to gamepad camera mode when using right stick
+                this.cameraMode = 'gamepad';
+            }
+        }
+        
+        if (this.cameraMode === 'gamepad' && this.gamepadConnected) {
+            // Gamepad-controlled camera (right stick)
+            const yawRad = (this.cameraYaw * Math.PI) / 180;
+            const pitchRad = (this.cameraPitch * Math.PI) / 180;
+            
+            // Calculate camera position using spherical coordinates
+            const horizontalDistance = this.cameraDistance * Math.cos(pitchRad);
+            
+            const cameraOffsetX = horizontalDistance * Math.sin(yawRad);
+            const cameraOffsetZ = horizontalDistance * Math.cos(yawRad);
+            const cameraOffsetY = this.cameraDistance * Math.sin(pitchRad);
+            
+            // Position camera relative to player
+            const targetX = this.player.position.x + cameraOffsetX;
+            const targetY = this.player.position.y + cameraOffsetY + 2.0;
+            const targetZ = this.player.position.z + cameraOffsetZ;
+            
+            // Smooth camera movement
+            this.cameraPosition.set(targetX, targetY, targetZ);
+            this.camera.position.lerp(this.cameraPosition, 0.15);
+            this.camera.lookAt(this.player.position);
+            
+        } else if (this.gyroEnabled && this.gyroSupported) {
             // Gyroscope-controlled camera
+            this.cameraMode = 'gyro';
             const sensitivity = 0.5;
             
             // Calculate relative rotation from base orientation
@@ -1087,6 +1316,7 @@ class Game {
             
         } else {
             // Standard smooth camera follow - Increased distances for better mobile view
+            this.cameraMode = 'follow';
             this.cameraTarget.set(
                 this.player.position.x + 6, // Increased from 4
                 this.player.position.y + 5, // Increased from 3
@@ -1165,20 +1395,29 @@ class Game {
     updateTouchDebug() {
         const debugElement = document.getElementById('touch-debug');
         if (debugElement) {
-            let status = 'Touch: ';
+            let status = '';
             
+            // Show input method priority
+            if (this.gamepadConnected) {
+                status += '🎮 Gamepad | ';
+            }
+            if (this.touchZones.movement.active || this.touchZones.jump.active) {
+                status += '👆 Touch | ';
+            }
+            status += '⌨️ Keyboard';
+            
+            // Show camera mode
+            status += ` | Cam: ${this.cameraMode}`;
+            
+            // Touch zones status
             if (this.touchZones.movement.active) {
                 const x = this.touchZones.movement.moveX.toFixed(2);
                 const y = this.touchZones.movement.moveY.toFixed(2);
-                status += `Movement(${x},${y}) `;
-            } else {
-                status += 'Movement(OFF) ';
+                status += ` | Move(${x},${y})`;
             }
             
             if (this.touchZones.jump.active) {
-                status += 'Jump(ON)';
-            } else {
-                status += 'Jump(OFF)';
+                status += ' | Jump(ON)';
             }
             
             debugElement.textContent = status;
@@ -1240,6 +1479,22 @@ class Game {
             console.error('Error processing custom level data:', error);
             throw error;
         }
+    }
+    
+    resetCamera() {
+        this.cameraYaw = 0.0;
+        this.cameraPitch = -20.0;
+        this.cameraMode = 'follow';
+        
+        // Reset camera position to default follow mode
+        this.cameraTarget.set(
+            this.player.position.x + 6,
+            this.player.position.y + 5,
+            this.player.position.z + 8
+        );
+        this.cameraPosition.copy(this.cameraTarget);
+        this.camera.position.copy(this.cameraPosition);
+        this.camera.lookAt(this.player.position);
     }
 }
 
