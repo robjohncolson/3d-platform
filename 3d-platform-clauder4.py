@@ -417,6 +417,12 @@ class Game:
         # Camera
         self.camera_x, self.camera_y, self.camera_z = 0, 3, 6
         
+        # Camera rotation (added for right stick control)
+        self.camera_yaw = 0.0      # Horizontal rotation (left/right)
+        self.camera_pitch = -20.0  # Vertical rotation (up/down) - start slightly looking down
+        self.camera_distance = 6.0 # Distance from player
+        self.camera_sensitivity = 100.0  # How fast camera rotates
+        
         # Timing
         self.clock = pygame.time.Clock()
         self.last_time = pygame.time.get_ticks()
@@ -424,9 +430,9 @@ class Game:
         
         print("Enhanced 3D Platformer")
         print("Game: WASD - Move, SPACE/SHIFT - Jump, ESC - Pause, R - Restart")
-        print("Controller: Left stick/D-pad - Move, A/B/X/Y - Jump, Start - Pause")
+        print("Controller: Left stick/D-pad - Move, Right stick - Camera, A/B/X/Y - Jump, Start - Pause")
         print("Custom Levels: 6-0 - Load custom level from slots 1-5")
-        print("Info: C - Show controller details")
+        print("Info: C - Show controller details, V - Reset camera")
         print("Game Started! Use WASD to move, SPACE or SHIFT to jump")
         
     def setup_controller(self):
@@ -663,6 +669,11 @@ class Game:
                 elif event.key == pygame.K_c:
                     # Display controller information
                     self.display_controller_info()
+                elif event.key == pygame.K_v:
+                    # Reset camera to default position
+                    self.camera_yaw = 0.0
+                    self.camera_pitch = -20.0
+                    print("Camera reset to default position")
                 # Custom level loading
                 elif self.game_state == "playing":
                     if event.key == pygame.K_6:
@@ -747,7 +758,7 @@ class Game:
             # Controller input
             if self.joystick:
                 try:
-                    # Left analog stick input
+                    # Left analog stick input (movement)
                     if self.joystick.get_numaxes() >= 2:
                         stick_x = self.joystick.get_axis(0)  # Left stick X
                         stick_y = self.joystick.get_axis(1)  # Left stick Y
@@ -759,7 +770,7 @@ class Game:
                         if abs(stick_y) > deadzone:
                             move_dir[1] += stick_y
                     
-                    # D-pad input (hat)
+                    # D-pad input (movement)
                     if self.joystick.get_numhats() >= 1:
                         hat_x, hat_y = self.joystick.get_hat(0)
                         move_dir[0] += hat_x
@@ -793,6 +804,28 @@ class Game:
     
     def update(self, dt):
         if self.game_state == "playing":
+            # Handle right stick camera input (moved here where dt is available)
+            if self.joystick:
+                try:
+                    if self.joystick.get_numaxes() >= 4:
+                        right_stick_x = self.joystick.get_axis(2)  # Right stick X
+                        right_stick_y = self.joystick.get_axis(3)  # Right stick Y
+                        
+                        # Apply deadzone and sensitivity
+                        camera_deadzone = 0.1
+                        if abs(right_stick_x) > camera_deadzone:
+                            self.camera_yaw += right_stick_x * self.camera_sensitivity * dt
+                            print(f"Camera yaw: {self.camera_yaw:.1f}° (stick: {right_stick_x:.2f})")
+                        if abs(right_stick_y) > camera_deadzone:
+                            self.camera_pitch += right_stick_y * self.camera_sensitivity * dt
+                            print(f"Camera pitch: {self.camera_pitch:.1f}° (stick: {right_stick_y:.2f})")
+                        
+                        # Clamp pitch to prevent camera flipping
+                        self.camera_pitch = max(-80.0, min(80.0, self.camera_pitch))
+                        
+                except Exception as e:
+                    print(f"Camera input error: {e}")
+            
             # Update player
             took_damage = self.player.update(self.platforms, dt, self.sound_manager, self.particles)
             
@@ -838,14 +871,37 @@ class Game:
             self.update_camera()
     
     def update_camera(self):
-        # Smooth camera follow
-        target_x = self.player.x + 4
-        target_y = self.player.y + 3
-        target_z = self.player.z + 5
+        # Debug output
+        print(f"Camera angles - Yaw: {self.camera_yaw:.1f}°, Pitch: {self.camera_pitch:.1f}°")
         
-        self.camera_x += (target_x - self.camera_x) * 0.08
-        self.camera_y += (target_y - self.camera_y) * 0.08
-        self.camera_z += (target_z - self.camera_z) * 0.08
+        # Calculate camera position based on rotation angles
+        # Convert degrees to radians
+        yaw_rad = math.radians(self.camera_yaw)
+        pitch_rad = math.radians(self.camera_pitch)
+        
+        # Calculate camera position relative to player
+        # Use spherical coordinates: distance * cos(pitch) for horizontal plane
+        horizontal_distance = self.camera_distance * math.cos(pitch_rad)
+        
+        camera_offset_x = horizontal_distance * math.sin(yaw_rad)
+        camera_offset_z = horizontal_distance * math.cos(yaw_rad)
+        camera_offset_y = self.camera_distance * math.sin(pitch_rad)
+        
+        # Position camera relative to player
+        target_camera_x = self.player.x + camera_offset_x
+        target_camera_y = self.player.y + camera_offset_y + 2.0  # Offset up from player center
+        target_camera_z = self.player.z + camera_offset_z
+        
+        # Debug output
+        print(f"Target camera pos: ({target_camera_x:.1f}, {target_camera_y:.1f}, {target_camera_z:.1f})")
+        
+        # Smooth camera movement (optional - can be made instant for more responsive feel)
+        smooth_factor = 0.15
+        self.camera_x += (target_camera_x - self.camera_x) * smooth_factor
+        self.camera_y += (target_camera_y - self.camera_y) * smooth_factor
+        self.camera_z += (target_camera_z - self.camera_z) * smooth_factor
+        
+        print(f"Actual camera pos: ({self.camera_x:.1f}, {self.camera_y:.1f}, {self.camera_z:.1f})")
     
     def render(self):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -1007,7 +1063,8 @@ class Game:
             print(f"   Hats: {self.joystick.get_numhats()}")
             
             print(f"\n🎮 8bitdo Ultimate 2 Controls:")
-            print(f"   Left Stick/D-pad: Move")
+            print(f"   Left Stick/D-pad: Move character")
+            print(f"   Right Stick: Control camera angle")
             print(f"   A/B/X/Y buttons: Jump")
             print(f"   Start button: Pause/Unpause")
             print(f"   Back/Select: Restart level")
@@ -1020,10 +1077,22 @@ class Game:
                 stick_y = self.joystick.get_axis(1)
                 print(f"   Left stick: X={stick_x:.2f}, Y={stick_y:.2f}")
             
+            if self.joystick.get_numaxes() >= 4:
+                right_stick_x = self.joystick.get_axis(2)
+                right_stick_y = self.joystick.get_axis(3)
+                print(f"   Right stick: X={right_stick_x:.2f}, Y={right_stick_y:.2f}")
+            
             if self.joystick.get_numhats() >= 1:
                 hat_x, hat_y = self.joystick.get_hat(0)
                 print(f"   D-pad: X={hat_x}, Y={hat_y}")
-                
+            
+            # Show current camera state
+            print(f"\n📷 Camera Info:")
+            print(f"   Yaw: {self.camera_yaw:.1f}°")
+            print(f"   Pitch: {self.camera_pitch:.1f}°")
+            print(f"   Distance: {self.camera_distance:.1f}")
+            print(f"   Position: ({self.camera_x:.1f}, {self.camera_y:.1f}, {self.camera_z:.1f})")
+            
         except Exception as e:
             print(f"Error reading controller info: {e}")
 
